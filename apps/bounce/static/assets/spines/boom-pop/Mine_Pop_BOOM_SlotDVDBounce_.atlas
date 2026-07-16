@@ -1,0 +1,13 @@
+
+Mine_Pop_BOOM_SlotDVDBounce_.png
+size: 812,352
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+pop
+  rotate: false
+  xy: 8, 8
+  size: 788, 336
+  orig: 788, 336
+  offset: 0, 0
+  index: -1

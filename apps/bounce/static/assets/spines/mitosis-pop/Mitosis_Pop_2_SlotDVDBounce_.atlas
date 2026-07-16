@@ -1,0 +1,13 @@
+
+Mitosis_Pop_2_SlotDVDBounce_.png
+size: 384,352
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+pop
+  rotate: false
+  xy: 8, 8
+  size: 360, 336
+  orig: 360, 336
+  offset: 0, 0
+  index: -1

@@ -1,0 +1,48 @@
+
+Slot_Symbol_Gem_SlotDVDBounce_.png
+size: 604,398
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+tileBg
+  rotate: false
+  xy: 6, 6
+  size: 200, 200
+  orig: 200, 200
+  offset: 0, 0
+  index: -1
+border
+  rotate: false
+  xy: 212, 6
+  size: 200, 200
+  orig: 200, 200
+  offset: 0, 0
+  index: -1
+glow
+  rotate: false
+  xy: 418, 6
+  size: 180, 180
+  orig: 180, 180
+  offset: 0, 0
+  index: -1
+gem
+  rotate: false
+  xy: 6, 212
+  size: 180, 180
+  orig: 180, 180
+  offset: 0, 0
+  index: -1
+question
+  rotate: false
+  xy: 192, 212
+  size: 152, 152
+  orig: 152, 152
+  offset: 0, 0
+  index: -1
+mult
+  rotate: false
+  xy: 350, 212
+  size: 162, 84
+  orig: 162, 84
+  offset: 0, 0
+  index: -1

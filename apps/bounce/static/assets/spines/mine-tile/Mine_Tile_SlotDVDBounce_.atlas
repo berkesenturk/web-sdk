@@ -1,0 +1,55 @@
+
+Mine_Tile_SlotDVDBounce_.png
+size: 560,504
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+bg
+  rotate: false
+  xy: 6, 6
+  size: 200, 200
+  orig: 200, 200
+  offset: 0, 0
+  index: -1
+border
+  rotate: false
+  xy: 212, 6
+  size: 200, 200
+  orig: 200, 200
+  offset: 0, 0
+  index: -1
+flash
+  rotate: false
+  xy: 6, 212
+  size: 200, 200
+  orig: 200, 200
+  offset: 0, 0
+  index: -1
+mine
+  rotate: false
+  xy: 212, 212
+  size: 176, 176
+  orig: 176, 176
+  offset: 0, 0
+  index: -1
+glow
+  rotate: false
+  xy: 394, 212
+  size: 160, 160
+  orig: 160, 160
+  offset: 0, 0
+  index: -1
+label
+  rotate: false
+  xy: 6, 418
+  size: 144, 80
+  orig: 144, 80
+  offset: 0, 0
+  index: -1
+light
+  rotate: false
+  xy: 156, 418
+  size: 32, 32
+  orig: 32, 32
+  offset: 0, 0
+  index: -1

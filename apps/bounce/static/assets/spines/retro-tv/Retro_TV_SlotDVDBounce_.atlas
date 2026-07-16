@@ -1,0 +1,69 @@
+
+Retro_TV_SlotDVDBounce_.png
+size: 1334,1120
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+cabinet
+  rotate: false
+  xy: 6, 6
+  size: 795, 969
+  orig: 795, 969
+  offset: 0, 0
+  index: -1
+banner
+  rotate: false
+  xy: 807, 6
+  size: 333, 193
+  orig: 333, 193
+  offset: 0, 0
+  index: -1
+dial
+  rotate: false
+  xy: 1146, 6
+  size: 182, 182
+  orig: 182, 182
+  offset: 0, 0
+  index: -1
+vuBase
+  rotate: false
+  xy: 6, 981
+  size: 154, 133
+  orig: 154, 133
+  offset: 0, 0
+  index: -1
+vuNeedle
+  rotate: false
+  xy: 166, 981
+  size: 66, 133
+  orig: 66, 133
+  offset: 0, 0
+  index: -1
+grille
+  rotate: false
+  xy: 238, 981
+  size: 378, 132
+  orig: 378, 132
+  offset: 0, 0
+  index: -1
+knob
+  rotate: false
+  xy: 622, 981
+  size: 79, 79
+  orig: 79, 79
+  offset: 0, 0
+  index: -1
+readout
+  rotate: false
+  xy: 707, 981
+  size: 264, 63
+  orig: 264, 63
+  offset: 0, 0
+  index: -1
+led
+  rotate: false
+  xy: 977, 981
+  size: 42, 42
+  orig: 42, 42
+  offset: 0, 0
+  index: -1
