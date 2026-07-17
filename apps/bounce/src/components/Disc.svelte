@@ -1,12 +1,18 @@
 <script lang="ts">
-	import { SpineProvider } from 'pixi-svelte';
+	import { Graphics, SpineProvider, type GraphicsProps } from 'pixi-svelte';
 	import { Tween } from 'svelte/motion';
 	import { stateBet } from 'state-shared';
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
 	import { toPixel } from '../game/boardGeometry';
-	import { DISC_SIZES, DISC_PLATE_NATIVE, DISC_SPEED, DISC_DURATION } from '../game/constants';
+	import {
+		DISC_SIZES,
+		DISC_PLATE_NATIVE,
+		DISC_SPEED,
+		DISC_DURATION,
+		DISC_COLOR_CYCLE,
+	} from '../game/constants';
 	import DiscAnimations from './DiscAnimations.svelte';
 
 	// One disc (DVD logo, spine rig). It only renders/animates when it receives a
@@ -26,6 +32,24 @@
 	let visible = $state(false);
 	const x = new Tween(0, { duration: 0 });
 	const y = new Tween(0, { duration: 0 });
+
+	// Phosphor glow trailing the disc. Its colour mirrors the plate tint via a
+	// PARALLEL counter fed by the same contact events (the rig's own cycle in
+	// DiscAnimations stays untouched); both reset per round — this one on
+	// boardReset, the rig's by its remount — so they stay in lockstep.
+	let colorIndex = $state(0);
+	const glowColor = $derived(DISC_COLOR_CYCLE[colorIndex % DISC_COLOR_CYCLE.length]);
+	// ~radial gradient: concentric circles, alpha compounding to ~0.14 centre.
+	const GLOW_RADIUS = 170;
+	const drawGlow: GraphicsProps['draw'] = $derived.by(() => {
+		const color = glowColor;
+		return (g) => {
+			for (let i = 6; i >= 1; i--) {
+				g.circle(0, 0, (GLOW_RADIUS * i) / 6);
+				g.fill({ color, alpha: 0.024 });
+			}
+		};
+	});
 
 	// Mid-round skip: snap the in-flight slide to its end and resolve the move that
 	// discMove is awaiting. We must resolve it explicitly — interrupting a running
@@ -60,6 +84,7 @@
 
 	const reset = () => {
 		visible = false;
+		colorIndex = 0;
 		// Disc 0 has a booked (interior) start; later discs (sequential roulette)
 		// appear on their first bounce.
 		if (dvdIndex === 0 && stateGame.discStart) {
@@ -71,6 +96,12 @@
 
 	context.eventEmitter.subscribeOnMount({
 		boardReset: () => reset(),
+		discBounce: (emitterEvent) => {
+			if (emitterEvent.dvdIndex === dvdIndex) colorIndex += 1;
+		},
+		discCorner: (emitterEvent) => {
+			if (emitterEvent.dvdIndex === dvdIndex) colorIndex += 1;
+		},
 		discMove: async (emitterEvent) => {
 			if (emitterEvent.dvdIndex !== dvdIndex) return;
 			const target = contactPixel(emitterEvent.position);
@@ -101,6 +132,7 @@
 </script>
 
 {#if visible}
+	<Graphics x={x.current} y={y.current} draw={drawGlow} />
 	<SpineProvider key="dvd" x={x.current} y={y.current} {scale}>
 		<DiscAnimations {dvdIndex} />
 	</SpineProvider>

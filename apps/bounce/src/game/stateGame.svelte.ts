@@ -34,6 +34,9 @@ export const stateGame = $state({
 	// Set true by a mid-round SPIN press to fast-forward the rest of the round's
 	// animation to its result; reset to false at the start of every round.
 	skip: false,
+	// CRT scanlines overlay on the screen (MENÜ toggle). Display preference —
+	// deliberately untouched by reset()/settle(), so it survives rounds.
+	scanlines: true,
 });
 
 // Apply a reveal event's board to state without animation (used by both the

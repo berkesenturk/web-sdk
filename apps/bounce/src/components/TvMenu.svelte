@@ -4,6 +4,7 @@
 	import { stateModal, stateSound } from 'state-shared';
 
 	import { getContext } from '../game/context';
+	import { stateGame } from '../game/stateGame.svelte';
 
 	// Retro dropdown for the cabinet's baked MENÜ pill. The replica pill (same
 	// olive style, colors sampled from the cabinet art) covers the baked one so
@@ -22,6 +23,7 @@
 	const ITEM = { width: 48, height: 16, spacing: 18 };
 
 	const soundLabel = $derived(stateSound.volumeValueMaster === 0 ? 'SOUND OFF' : 'SOUND ON');
+	const scanlinesLabel = $derived(stateGame.scanlines ? 'SCANLINES ON' : 'SCANLINES OFF');
 	const items = $derived([
 		// bottom-up stack: first item sits closest to the MENÜ pill
 		{
@@ -29,6 +31,13 @@
 			onpress: () => {
 				pressSound();
 				stateSound.volumeValueMaster = stateSound.volumeValueMaster === 0 ? 50 : 0;
+			},
+		},
+		{
+			label: scanlinesLabel,
+			onpress: () => {
+				pressSound();
+				stateGame.scanlines = !stateGame.scanlines;
 			},
 		},
 		{

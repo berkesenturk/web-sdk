@@ -56,6 +56,16 @@
 		g.fill(0xffffff);
 	};
 
+	// CRT scanlines: 2px dark line every 5 board px, topmost over the whole
+	// screen (the mask clips it to the cutout's rounded corners). Toggleable
+	// from the MENÜ dropdown via stateGame.scanlines.
+	const drawScanlines: GraphicsProps['draw'] = (g) => {
+		for (let y = 0; y < BOARD_SIZES.height; y += 5) {
+			g.rect(0, y, BOARD_SIZES.width, 2);
+		}
+		g.fill({ color: 0x000000, alpha: 0.13 });
+	};
+
 	// Colour key for the design view, drawn in the empty play area.
 	const legend = [
 		{ label: 'GEM TILE (value)', color: DESIGN_COLORS.gem },
@@ -69,11 +79,15 @@
 {#snippet boardContent()}
 	<Graphics isMask draw={drawScreenMask} />
 	<Board />
+	<!-- readouts sit UNDER the disc; scanlines over everything -->
+	<ScreenHud />
 	{#each discs as dvdIndex (dvdIndex)}
 		<Disc {dvdIndex} />
 	{/each}
 	<HitFx />
-	<ScreenHud />
+	{#if stateGame.scanlines}
+		<Graphics draw={drawScanlines} />
+	{/if}
 {/snippet}
 
 {#if DESIGN_MODE}
