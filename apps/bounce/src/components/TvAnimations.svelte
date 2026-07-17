@@ -3,6 +3,7 @@
 	import { stateBet } from 'state-shared';
 
 	import { getContext } from '../game/context';
+	import { stateGame } from '../game/stateGame.svelte';
 
 	// Imperative animation control for the TV rig, driven by emitter events.
 	// Each animation keys a disjoint set of bones, so every clip gets its own
@@ -11,6 +12,15 @@
 
 	const context = getContext();
 	const spine = getContextSpine();
+
+	// The SPIN dial reads too small next to the SDK-less cabinet controls; blow
+	// the baked knob art up 20%. Safe to set once: no animation keys the dial
+	// bone (knob-twist keys only knobL/knobR), so nothing overwrites it.
+	const dialBone = spine.skeleton.findBone('dial');
+	if (dialBone) {
+		dialBone.scaleX = 1.2;
+		dialBone.scaleY = 1.2;
+	}
 
 	const oneShot = (trackIndex: number, name: string) => {
 		const entry = spine.state.setAnimation(trackIndex, name, false);
@@ -35,9 +45,11 @@
 			spine.state.setAnimation(TRACK.needle, 'vu-needle-swing', true);
 		},
 		discBounce: () => {
+			if (stateGame.skip) return;
 			oneShot(TRACK.grille, 'grille-buzz');
 		},
 		discCorner: () => {
+			if (stateGame.skip) return;
 			oneShot(TRACK.grille, 'grille-buzz');
 		},
 		roundEnd: () => {

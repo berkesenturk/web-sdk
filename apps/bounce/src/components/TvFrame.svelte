@@ -36,6 +36,10 @@
 	// turns into turbo-for-this-round (a gradual speed-up) — not the clean jump-to-
 	// end the cabinet wants. The BAHİS knobs / OTO still lock mid-round.
 	const idle = () => context.stateXstateDerived.isIdle();
+	// While a round is playing the dial shows a STOP icon (red rounded square,
+	// matching the SDK bet button's stop state). isPlaying, not !isIdle, so the
+	// icon doesn't show during the initial rendering state.
+	const roundRunning = $derived(context.stateXstateDerived.isPlaying());
 
 	const spin = () => {
 		if (!idle()) {
@@ -81,7 +85,10 @@
 			},
 		},
 		{
-			x: 384, y: 564, width: 59, height: 59, // dial = SPIN (always clickable)
+			// dial = SPIN (always clickable). The knob art is bone-scaled 1.2x (see
+			// TvAnimations); 66 not 71 here so the grown hit box doesn't eat further
+			// into the BAHİS knobs' hit areas (the visible knob circle is ~49 px).
+			x: 384, y: 564, width: 66, height: 66,
 			onpress: spin,
 		},
 		{
@@ -132,6 +139,37 @@
 	</SpineSlot>
 </SpineProvider>
 
+{#if roundRunning}
+	<!-- STOP affordance on the SPIN dial: a knob-face-coloured disc hides the
+	     baked spin-arrow glyph, then the red rounded square draws over it. Both
+	     are non-interactive, so the dial's hit area beneath still takes the
+	     mid-round press (= skip to result). -->
+	<!-- Not at the hit area's 384/564: the knob is drawn ~1px up-left of centre
+	     in its texture, and the 1.2x bone scale magnifies that optical offset
+	     (measured from the rim circle). Sizes are the 1.2x of the original
+	     34/24 so the icon keeps its proportion to the enlarged knob. -->
+	<Rectangle
+		x={382.8}
+		y={562.3}
+		anchor={0.5}
+		width={41}
+		height={41}
+		borderRadius={20.5}
+		backgroundColor={0xacb984}
+	/>
+	<Rectangle
+		x={382.8}
+		y={562.3}
+		anchor={0.5}
+		width={29}
+		height={29}
+		borderRadius={5}
+		backgroundAlpha={0}
+		borderWidth={3}
+		borderColor={0xf2606c}
+	/>
+{/if}
+
 {#each cabinetButtons as button (button)}
 	<Button
 		x={button.x}
@@ -141,8 +179,16 @@
 		disabled={button.disabled?.()}
 		onpress={button.onpress}
 	>
-		{#snippet children()}
-			<Rectangle width={button.width} height={button.height} alpha={0} />
+		{#snippet children({ hovered })}
+			<!-- Invisible hit area that lightens on hover for feedback (the button
+			     art itself is baked into the cabinet). -->
+			<Rectangle
+				width={button.width}
+				height={button.height}
+				backgroundColor={0xffffff}
+				backgroundAlpha={hovered ? 0.18 : 0}
+				borderRadius={Math.min(button.width, button.height) / 2}
+			/>
 		{/snippet}
 	</Button>
 {/each}

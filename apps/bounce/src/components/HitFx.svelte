@@ -11,21 +11,43 @@
 	// One-shot FX layer above the discs: each qualifying bounce spawns short
 	// spine clips at the booked contact point and unmounts them on complete.
 	// Fire-and-forget — never extends the awaited bounce.
-	type Pop = { id: number; key: string; animationName: string; x: number; y: number; text?: string };
+	type Pop = {
+		id: number;
+		key: string;
+		animationName: string;
+		x: number;
+		y: number;
+		scale: number;
+		text?: string;
+	};
 
 	const context = getContext();
 	let pops = $state<Pop[]>([]);
 	let nextId = 0;
 
+	// The value/BOOM bubbles run at half the FX scale (design: they crowded the
+	// board at full POP_SCALE); the mitosis coupon and explosion keep it.
+	const popScale = (key: string) =>
+		key === 'multPop' || key === 'boomPop' ? POP_SCALE / 2 : POP_SCALE;
+
 	// Text pops are nudged inside the board so a wall contact doesn't clip the
-	// bubble at the screen mask (half a scaled bubble is ~150x60). The explosion
-	// stays on the exact contact point — its burst reads fine bleeding over.
+	// bubble at the screen mask (half a bubble at POP_SCALE is ~150x60; margins
+	// shrink with the pop's scale). The explosion stays on the exact contact
+	// point — its burst reads fine bleeding over.
 	const spawn = (key: string, animationName: string, position: Vec2, text?: string) => {
 		const p = toPixel(position);
-		const x = key === 'explosion' ? p.x : Math.min(Math.max(p.x, 155), BOARD_SIZES.width - 155);
+		const scale = popScale(key);
+		const f = scale / POP_SCALE;
+		const x =
+			key === 'explosion'
+				? p.x
+				: Math.min(Math.max(p.x, 155 * f), BOARD_SIZES.width - 155 * f);
 		// extra top headroom: the pop clip floats the bubble ~50px upward
-		const y = key === 'explosion' ? p.y : Math.min(Math.max(p.y, 115), BOARD_SIZES.height - 65);
-		pops.push({ id: nextId++, key, animationName, x, y, text });
+		const y =
+			key === 'explosion'
+				? p.y
+				: Math.min(Math.max(p.y, 115 * f), BOARD_SIZES.height - 65 * f);
+		pops.push({ id: nextId++, key, animationName, x, y, scale, text });
 	};
 	const remove = (id: number) => {
 		pops = pops.filter((pop) => pop.id !== id);
@@ -36,6 +58,9 @@
 			pops = [];
 		},
 		discBounce: (emitterEvent) => {
+			// A mid-round SPIN (skip) cuts straight to the result — don't spawn the
+			// rest of the bounce FX.
+			if (stateGame.skip) return;
 			// Match the FX to the tile the disc is actually OVER (by contact
 			// position), so the pop kind/value agrees with the tile that flashes.
 			const hit = hitVisualZone(stateGame.zones, emitterEvent.position);
@@ -56,7 +81,7 @@
 </script>
 
 {#each pops as pop (pop.id)}
-	<SpineProvider key={pop.key} x={pop.x} y={pop.y} scale={POP_SCALE}>
+	<SpineProvider key={pop.key} x={pop.x} y={pop.y} scale={pop.scale}>
 		<PopAnimation
 			animationName={pop.animationName}
 			text={pop.text}

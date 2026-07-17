@@ -5,6 +5,7 @@
 	import { waitForTimeout } from 'utils-shared/wait';
 
 	import { getContext } from '../game/context';
+	import { stateGame } from '../game/stateGame.svelte';
 	import { fmtZoneVal, contactWallFraction } from '../game/boardGeometry';
 	import { REVEAL_STAGGER } from '../game/constants';
 	import type { Zone } from '../game/types';
@@ -59,6 +60,8 @@
 	// folded into 8 visual tiles per wall.
 	context.eventEmitter.subscribeOnMount({
 		discBounce: (emitterEvent) => {
+			// A mid-round SPIN (skip) cuts to the result — don't flash the rest.
+			if (stateGame.skip) return;
 			const c = contactWallFraction(emitterEvent.position);
 			if (!c || c.wall !== zone.wall || c.fraction < zone.start || c.fraction >= zone.end) return;
 			spine.state.setAnimation(1, hitAnimation, false);

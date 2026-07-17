@@ -15,12 +15,11 @@
 	let open = $state(false);
 	const pressSound = () => context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 
-	// Baked MENÜ pill measured from the cabinet art (rig px, y-down). All three
-	// baked pills (MENÜ/SES/BİLGİ) are ~31x12; the replica and the dropdown
-	// items use the same size so the whole column reads uniform.
-	const MENU_PILL = { x: 39.5, y: 552.5, width: 32, height: 12.5 };
-	// spacing = pill height + the 2px gap the baked pills use between each other
-	const ITEM = { width: 32, height: 12.5, spacing: 14.5 };
+	// The MENÜ pill + dropdown items. Sized so the ~50%-larger labels sit clearly
+	// inside (wider than the baked SES/BİLGİ pills — the interactive menu reads
+	// bigger for legibility). x is the baked MENÜ centre.
+	const MENU_PILL = { x: 39.5, y: 552.5, width: 48, height: 16 };
+	const ITEM = { width: 48, height: 16, spacing: 18 };
 
 	const soundLabel = $derived(stateSound.volumeValueMaster === 0 ? 'SOUND OFF' : 'SOUND ON');
 	const items = $derived([
@@ -66,9 +65,9 @@
 		(width: number, height: number, hovered: boolean): GraphicsProps['draw'] =>
 		(g) => {
 			g.roundRect(0, 0, width, height, 4.5);
-			g.fill(hovered ? 0x5d6a40 : 0x4d5832);
+			g.fill(hovered ? 0x8a9a5f : 0x4d5832); // clearly lighter on hover
 			g.roundRect(0, 0, width, height, 4.5);
-			g.stroke({ color: 0x49542f, width: 1, alpha: 0.9 });
+			g.stroke({ color: hovered ? 0x6f7d45 : 0x49542f, width: 1, alpha: 0.9 });
 		};
 </script>
 
@@ -78,7 +77,7 @@
 		x={center.x}
 		y={center.y}
 		anchor={0.5}
-		scale={0.2}
+		scale={0.3}
 		text={label}
 		style={{
 			fontFamily: 'proxima-nova',

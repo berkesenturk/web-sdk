@@ -22,8 +22,10 @@
 	context.eventEmitter.subscribeOnMount({
 		boardReset: () => (cornerPopup = undefined),
 		discCorner: async (emitterEvent) => {
+			// Mid-round SPIN (skip) cuts to the result — don't flash the corner popup.
+			if (stateGame.skip) return;
 			cornerPopup = `×${fmtZoneVal(emitterEvent.effectiveMultiplier)}`;
-			if (!stateGame.skip) await waitForTimeout(900);
+			await waitForTimeout(900);
 			cornerPopup = undefined;
 		},
 	});
