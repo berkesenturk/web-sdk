@@ -92,11 +92,16 @@
 			await Promise.race([move, skipped]);
 			onSkip = null;
 		},
+		// Round resolved (finalWin): the disc leaves the board. It reappears on the
+		// next round's boardReset (which remounts the rig, replaying reveal→idle).
+		roundEnd: () => {
+			visible = false;
+		},
 	});
 </script>
 
 {#if visible}
 	<SpineProvider key="dvd" x={x.current} y={y.current} {scale}>
-		<DiscAnimations />
+		<DiscAnimations {dvdIndex} />
 	</SpineProvider>
 {/if}

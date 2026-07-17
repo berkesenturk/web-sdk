@@ -66,12 +66,21 @@ export const REVEAL_WAVE_DURATION = 40 * REVEAL_STAGGER + 650;
 // natively DISC_PLATE_NATIVE; we render it DISC_SIZES wide (same aspect), so the
 // SpineProvider scale is DISC_SIZES.width / DISC_PLATE_NATIVE.width. The size also
 // drives the edge-collision offset in Disc.svelte (disc bounces on its edge, not
-// its centre), so keep width/height = the visible logo extent.
-export const DISC_PLATE_NATIVE = { width: 320, height: 152 };
+// its centre), so keep width/height = the visible logo extent — the dvd-plate
+// attachment is 200x111 rig units, but the badge art only fills 256x154 of its
+// 460x256 texture region; the rest is transparent padding.
+export const DISC_PLATE_NATIVE = { width: (256 / 460) * 200, height: (154 / 256) * 111 };
 export const DISC_SIZES = {
-	width: 100,
-	height: (100 * DISC_PLATE_NATIVE.height) / DISC_PLATE_NATIVE.width, // 47.5, DVD aspect
+	width: 80,
+	height: (80 * DISC_PLATE_NATIVE.height) / DISC_PLATE_NATIVE.width, // 48, badge aspect
 };
+
+// Classic DVD-logo colour cycle: the plate tint steps to the next colour at
+// every contact (wall bounce or corner). The plate art is near-white, so the
+// multiplicative tint reads as the colour itself.
+export const DISC_COLOR_CYCLE = [
+	0x5ad7ff, 0x6dff8a, 0xffe14d, 0xffb84d, 0xff5a5a, 0xff7ad9, 0xb48aff,
+];
 
 // Retro-TV rig (Spine export) geometry, in rig pixels. The rig's root sits at
 // the cabinet center (TvFrame shifts it by half these sizes so consumers keep

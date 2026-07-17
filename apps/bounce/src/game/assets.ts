@@ -40,8 +40,12 @@ export default {
 	dvd: {
 		type: 'spine',
 		src: {
-			atlas: new URL('../../assets/spines/dvd/DVD_SlotDVDBounce_.atlas', import.meta.url).href,
-			skeleton: new URL('../../assets/spines/dvd/DVD_SlotDVDBounce_.json', import.meta.url).href,
+			atlas: new URL('../../assets/spines/dvd-plate/DVD_Plate_SlotDVDBounce_.atlas', import.meta.url)
+				.href,
+			skeleton: new URL(
+				'../../assets/spines/dvd-plate/DVD_Plate_SlotDVDBounce_.json',
+				import.meta.url,
+			).href,
 		},
 		preload: true,
 	},
