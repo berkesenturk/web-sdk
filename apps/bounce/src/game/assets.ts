@@ -1,4 +1,11 @@
 export default {
+	// Full-canvas backdrop behind the TV cabinet. Authored at 2039x1000, the same
+	// ratio as stateLayout's backgroundRatio.normal, so it cover-fits any window.
+	officeBackground: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/office-background/office_background.png', import.meta.url).href,
+		preload: true,
+	},
 	// Retro-TV rig (Spine 4.2 export from the keyframe editor). Lives in
 	// static/assets like the lines app's spines: the atlas resolves its texture
 	// pages relative to its own URL, which the inline bundle would break.
