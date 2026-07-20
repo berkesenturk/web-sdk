@@ -23,8 +23,14 @@
 	const stagedIndex = $derived(MODES.findIndex((m) => m.key === staged));
 	const appliedLabel = $derived(MODES.find((m) => m.key === stateGame.visualMode)!.label);
 
+	// The mode must not change while a round is running: lock the sign (and the
+	// modal's ✓, for the autospin edge where a round starts while the modal is
+	// open) on the same !isIdle gate as the cabinet's BAHİS knobs / OTO switch.
+	const locked = $derived(!context.stateXstateDerived.isIdle());
+
 	const press = () => context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 	const openModal = () => {
+		if (locked) return;
 		press();
 		staged = stateGame.visualMode;
 		open = true;
@@ -34,6 +40,7 @@
 		open = false;
 	};
 	const apply = () => {
+		if (locked) return;
 		press();
 		stateGame.visualMode = staged;
 		open = false;
@@ -53,6 +60,7 @@
 <button
 	class="mode-sign"
 	style="left: {signLeft}px; top: {tv.y + 10 * s}px; --s: {s}"
+	disabled={locked}
 	onclick={openModal}
 >
 	<div class="sign-well">
@@ -105,7 +113,7 @@
 				<div class="deck-readout">{MODES[stagedIndex].label}</div>
 			</div>
 			<div class="confirm-row">
-				<button class="hw-btn ok" aria-label="apply mode" onclick={apply}>✓</button>
+				<button class="hw-btn ok" aria-label="apply mode" disabled={locked} onclick={apply}>✓</button>
 				<button class="hw-btn no" aria-label="cancel" onclick={cancel}>✕</button>
 			</div>
 			<div class="feet"><span class="foot"></span><span class="foot"></span></div>
@@ -138,6 +146,15 @@
 	}
 	.mode-sign:hover {
 		filter: brightness(1.15);
+	}
+	/* Locked while a round runs: stop breathing, dim, ignore hover. */
+	.mode-sign:disabled {
+		animation: none;
+		opacity: 0.45;
+		cursor: default;
+	}
+	.mode-sign:disabled:hover {
+		filter: none;
 	}
 	@keyframes sign-breathe {
 		0%,
@@ -422,6 +439,16 @@
 		box-shadow:
 			0 2px 4px rgba(0, 0, 0, 0.45),
 			inset 0 2px 0 rgba(255, 255, 255, 0.3);
+	}
+	.hw-btn:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+	.hw-btn:disabled:hover {
+		filter: none;
+	}
+	.hw-btn:disabled:active {
+		transform: none;
 	}
 	.hw-btn.ok {
 		background: linear-gradient(180deg, #7ba05a, #5d7a3e);
