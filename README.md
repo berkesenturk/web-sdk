@@ -4,9 +4,88 @@ This is a web sdk that is convenient for you to develop a game in a declarative 
 
 - How to use: To have 100% freedom to any source code from this repo, start your own codebase based on this repo. You can change any source code as you need.
 
+# Quick Start — Bounce (this fork)
+
+This fork's main game is **Bounce** (`apps/bounce`): a DVD-bounce game rendered as a
+retro-TV cabinet. Follow these steps from zero to a playable game. Everything runs from
+the repo root (`web-sdk/`).
+
+## 1. Prerequisites
+
+- **Node >= 22.16** and **pnpm 10** (`packageManager: pnpm@10.5.0`). If you have
+  neither, see [Installation](#installation) below for nvm/pnpm setup commands.
+- **Math books for local play:** the dev-only mock RGS samples real books from the
+  math-sdk publish files at `../math-sdk/games/bounce/library/publish_files`
+  (i.e. `math-sdk` must be a **sibling folder of `web-sdk/`**). Without it the dev
+  server starts but betting fails. Not needed for a production build.
+
+## 2. Install
+
+```sh
+pnpm install
+```
+
+## 3. Run the game
+
+```sh
+pnpm -F bounce dev
+```
+
+This serves **https://localhost:3007** with a self-signed certificate (accept the
+browser warning) and a same-origin mock RGS. Open the game with the query params the
+SDK expects:
+
+```
+https://localhost:3007/?rgs_url=localhost:3007&sessionID=mock&currency=USD&device=desktop&lang=en
+```
+
+Click the dial to spin. To watch a booked round in replay mode instead, append:
+
+```
+&replay=true&game=bounce&mode=normal&amount=1&event=3
+```
+
+## 4. Build (optional)
+
+```sh
+pnpm -F bounce build     # static site in apps/bounce/build/ — success marker: "✔ done"
+pnpm -F bounce preview   # serve the built output
+```
+
+Note: on WSL the build prints `✔ done` but the process may not exit on its own —
+Ctrl+C after the marker appears. A clean `vite build` is also this app's type-check
+gate (there is no `svelte-check` script).
+
+## More
+
+- **Full Bounce runbook** — assets/Spine swap rules, storybook (port 6007), lint,
+  workspace gotchas (spine version pinning, pixi-svelte `dist/` resolution, stale
+  install recovery): [apps/bounce/README.md](/apps/bounce/README.md)
+- **After changing a `packages/*` package** (e.g. `pixi-svelte`), rebuild it or the
+  app won't see the change: `pnpm -F pixi-svelte build`, then restart the dev server.
+- **Restart the dev server after any dependency change** — the running Vite optimizer
+  keeps serving stale, immutably-cached dep chunks until restarted.
+- **Lines** also has a local mock RGS (books sampled from its storybook data).
+  Run `pnpm -F lines dev`, then open:
+
+  ```
+  https://localhost:3001/?rgs_url=localhost:3001&sessionID=mock&currency=USD&device=desktop&lang=en
+  ```
+
+- The remaining upstream sample games (`cluster`, `scatter`, `ways`, `price`,
+  `number-picker`) have **no mock RGS** — opening their bare dev URL shows a
+  "Failed to fetch" error screen, which is expected: the game reads the RGS host
+  from the `rgs_url` query param. Either play them in storybook
+  (`pnpm run storybook --filter=<name>`, story `MODE_BASE/book/random`, click
+  **Action**) or paste the query string from a launched Stake Engine game session
+  onto the local URL.
+
+The rest of this document is the upstream Stake Engine SDK reference (concepts,
+book/emitter events, file structure, storybook, launch flow).
 
 # Table of Contents
 
+- [Quick Start — Bounce (this fork)](#quick-start--bounce-this-fork)
 - [Get Started](#getStarted)
   - [Installation](#installation)
   - [Run in Storybook](#runInStorybook)
