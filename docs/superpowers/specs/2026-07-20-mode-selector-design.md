@@ -126,11 +126,18 @@ isVisualMitosis(zone): boolean =
 
 ### Clone disc (split) — new `CloneDisc.svelte` + spawner in `TvScene.svelte`
 
-- Trigger: `discBounce` emitter event whose `zoneIndex` resolves to a
-  visually-swapped mythosis zone (booked `isGlow`/`isDead` are false by
-  construction of the predicate). First such hit of the round spawns ONE clone
-  ("the DVD must be two") — later mythosis hits while the clone lives do not
-  stack more clones; after the clone despawns a later hit may spawn again.
+- Trigger: EVERY mythosis-tile hit spawns a new clone — no two-disc cap; the
+  fleet grows as much as the hits produce (user: "whenever one dvd is hit there
+  will be a second so they can increase as much as possible"). Sources:
+  - the real disc: a `discBounce` emitter event whose `zoneIndex` resolves to a
+    visually-swapped mythosis zone (booked `isGlow`/`isDead` are false by
+    construction of the predicate);
+  - a clone: when a clone's simulated wall reflection lands on a
+    visually-swapped mythosis zone, it too splits (spawns another clone).
+  A performance ceiling of 16 live clones guards the exponential MYTHOSIS+
+  case (1-in-2 tiles → doubling per bounce); beyond it, hits stop splitting.
+- Clones do NOT score for now (user: real mitosis discs would score, but at
+  this stage only the visuals matter). No tile FX, no HUD impact.
 - Spawn at the real disc's contact pixel. Initial velocity = the real disc's
   incoming direction **negated** (equivalently: the mirror of the real disc's
   outgoing direction across the struck wall's normal) at `DISC_SPEED` — the two
@@ -139,7 +146,7 @@ isVisualMitosis(zone): boolean =
 - Clone behaviour: same dvd spine rig at `DISC_SIZES`, straight-line constant
   `DISC_SPEED` motion, geometric reflection off the play-area bounds (same
   half-extent edge insets as the real disc), squash `bounce` animation + colour
-  cycle on each wall hit. NO scoring, NO tile FX, NO HUD impact.
+  cycle on each wall hit.
 - Lifetime: despawns on `roundEnd` and `boardReset`; on `stateGame.skip` it
   despawns immediately (skip jumps to the result; the clone is round FX).
 - Rendered inside the board container (masked to the screen) under HitFx.
@@ -167,8 +174,9 @@ the HTML mock's board generator, not ours.)
   board change only after ✓.
 - Backdrop/✕ discard; no auto-close on selection.
 - All dark-screen text Courier with glow; no native form controls.
-- MYTHOSIS/+: swapped tiles render mitosis art; hitting one splits the DVD in
-  two, opposite directions; clone never scores.
+- MYTHOSIS/+: swapped tiles render mitosis art; every mythosis hit splits the
+  hitting DVD in two, opposite directions — the fleet keeps growing (clones
+  split too, ceiling 16); clones don't score (visuals-only for now).
 - CORNER RUSH: corner tiles pulse.
 - A full round plays clean in every mode (booked path, HUD, balance identical
   to NORMAL behaviour).
