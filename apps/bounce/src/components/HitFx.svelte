@@ -53,9 +53,28 @@
 		pops = pops.filter((pop) => pop.id !== id);
 	};
 
+	// Where each disc last stopped, so the end-of-round corner popup (the
+	// corner book event carries no position) lands where the player is looking.
+	const lastMove = new Map<number, Vec2>();
+
 	context.eventEmitter.subscribeOnMount({
 		boardReset: () => {
 			pops = [];
+			lastMove.clear();
+		},
+		discMove: (emitterEvent) => {
+			lastMove.set(emitterEvent.dvdIndex, emitterEvent.position);
+		},
+		// Rules: the corner multiplier shows as a popup when a corner is hit.
+		discCorner: (emitterEvent) => {
+			if (stateGame.skip) return;
+			const at = lastMove.get(emitterEvent.dvdIndex) ?? { x: 0.5, y: 0.5 };
+			spawn('multPop', 'pop', at, `×${fmtZoneVal(emitterEvent.effectiveMultiplier)}`);
+		},
+		// Rules: a corner hit can chain an extra DVD round — announce it.
+		discChain: () => {
+			if (stateGame.skip) return;
+			spawn('multPop', 'pop', { x: 0.5, y: 0.35 }, 'CHAIN!');
 		},
 		discBounce: (emitterEvent) => {
 			// A mid-round SPIN (skip) cuts straight to the result — don't spawn the
