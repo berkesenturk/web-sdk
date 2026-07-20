@@ -2,16 +2,24 @@
 	import { Container, Text } from 'pixi-svelte';
 	import { Tween } from 'svelte/motion';
 	import { backOut } from 'svelte/easing';
+	import { stateBet } from 'state-shared';
+	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { fmtZoneVal, hitVisualZone } from '../game/boardGeometry';
 	import { BOARD_SIZES } from '../game/constants';
 
 	// Centre-screen CRT readout, drawn UNDER the disc (see TvScene render order):
-	// the last struck tile (LAST HIT) above the round's running multiplier
-	// (TOTAL). TOTAL binds stateGame.runningTotal — the book-driven running
-	// points — so it matches what the bounce/corner events actually scored.
+	// the round's money win (EARNED, the hero, screen centre, revealed at round
+	// end) over a bottom row pairing the running multiplier (TOTAL X, left) with
+	// the last struck tile (LAST HIT, right).
+	// TOTAL X / LAST HIT show the BOOKED values (event zoneValue / runningTotal,
+	// always two decimals), not the visual tile's label — books carry 10 zones
+	// per wall folded into 8 visual tiles, so only the booked numbers keep
+	// TOTAL X = previous TOTAL X + LAST HIT arithmetically true on every bounce.
+	// (Tile flash/pop FX still match by position — see HitFx.) EARNED converts
+	// winBookEventAmount exactly like the SDK's LabelWin, so it always agrees
+	// with the WIN meter.
 	const context = getContext();
 
 	const MUTED = 0x96a5c8;
@@ -20,12 +28,14 @@
 
 	let lastHit = $state<{ text: string; color: number } | undefined>(undefined);
 	let mineHit = $state(false);
+	let earned = $state<{ text: string; positive: boolean } | undefined>(undefined);
 
 	// Reflow-pop equivalents: snap the scale up, spring back (backOut ≈ the
 	// spec's cubic-bezier(0.34, 1.56, 0.64, 1)). Skipped rounds flush values
 	// without the pop, like the rest of the FX.
 	const hitScale = new Tween(1, { duration: 0 });
 	const totalScale = new Tween(1, { duration: 0 });
+	const earnedScale = new Tween(1, { duration: 0 });
 	const pop = (tween: Tween<number>, from: number) => {
 		if (stateGame.skip) return;
 		tween.set(from, { duration: 0 });
@@ -45,18 +55,16 @@
 		boardReset: () => {
 			lastHit = undefined;
 			mineHit = false;
+			earned = undefined;
 		},
 		discBounce: (emitterEvent) => {
-			// Same position-matching as HitFx: the tile the disc is actually over.
-			const hit = hitVisualZone(stateGame.zones, emitterEvent.position);
-			if (!hit) return;
-			if (hit.isDead) {
+			if (emitterEvent.isDead) {
 				lastHit = { text: 'MINE', color: 0xff5a5a };
 				mineHit = true;
-			} else if (hit.isGlow) {
+			} else if (emitterEvent.isGlow) {
 				lastHit = { text: 'SPLIT', color: 0xb15cff };
-			} else if (hit.value > 0) {
-				lastHit = { text: `${fmtZoneVal(hit.value)}x`, color: 0x6dff8a };
+			} else if (emitterEvent.zoneValue > 0) {
+				lastHit = { text: `${emitterEvent.zoneValue.toFixed(2)}x`, color: 0x6dff8a };
 			} else {
 				return;
 			}
@@ -66,17 +74,29 @@
 			lastHit = { text: '★ CORNER', color: 0xffb84d };
 			pop(hitScale, 1.28);
 		},
+		// Round resolved: reveal the money win with a zoom-in (backOut overshoots
+		// past 1 and springs back — the in/out). setTotalWin has already landed in
+		// winBookEventAmount by the time finalWin broadcasts this. NOT gated on
+		// skip: skip jumps to the result, and EARNED is the result.
+		roundEnd: () => {
+			earned = {
+				text: bookEventAmountToCurrencyString(stateBet.winBookEventAmount),
+				positive: stateBet.winBookEventAmount > 0,
+			};
+			earnedScale.set(0, { duration: 0 });
+			earnedScale.set(1, { duration: 450, easing: backOut });
+		},
 	});
 
-	const totalColor = $derived(mineHit ? 0xff5a5a : 0xffe14d);
+	const totalColor = 0x6dff8a; // always green, even on a mine death
 	const totalIdle = $derived(!mineHit && stateGame.runningTotal <= 0);
 </script>
 
 <Container x={CX} y={CY}>
 	<Text
 		anchor={0.5}
-		y={-96}
-		text="LAST HIT"
+		y={-110}
+		text="EARNED"
 		alpha={0.5}
 		style={{
 			fontFamily: 'proxima-nova',
@@ -88,24 +108,31 @@
 	/>
 	<Text
 		anchor={0.5}
-		y={-38}
-		scale={hitScale.current}
-		text={lastHit?.text ?? '—'}
-		alpha={lastHit ? 1 : 0.35}
+		y={-50}
+		scale={earnedScale.current}
+		text={earned?.text ?? '—'}
+		alpha={earned ? 1 : 0.35}
 		style={{
 			fontFamily: 'monospace',
 			fontSize: 84,
 			fontWeight: '800',
-			fill: lastHit?.color ?? MUTED,
-			...(lastHit && {
-				dropShadow: { distance: 0, blur: 22, color: lastHit.color, alpha: 0.9, angle: 0 },
+			fill: earned ? (earned.positive ? 0xffe14d : 0xff5a5a) : MUTED,
+			...(earned && {
+				dropShadow: {
+					distance: 0,
+					blur: 22,
+					color: earned.positive ? 0xffe14d : 0xff5a5a,
+					alpha: 0.9,
+					angle: 0,
+				},
 			}),
 		}}
 	/>
 	<Text
 		anchor={0.5}
-		y={40}
-		text="TOTAL"
+		x={-150}
+		y={44}
+		text="TOTAL X"
 		alpha={0.5}
 		style={{
 			fontFamily: 'proxima-nova',
@@ -117,9 +144,10 @@
 	/>
 	<Text
 		anchor={0.5}
-		y={82}
+		x={-150}
+		y={86}
 		scale={totalScale.current}
-		text={`${fmtZoneVal(stateGame.runningTotal)}x`}
+		text={`${stateGame.runningTotal.toFixed(2)}x`}
 		alpha={totalIdle ? 0.35 : 1}
 		style={{
 			fontFamily: 'monospace',
@@ -128,6 +156,37 @@
 			fill: totalIdle ? MUTED : totalColor,
 			...(!totalIdle && {
 				dropShadow: { distance: 0, blur: 14, color: totalColor, alpha: 0.5, angle: 0 },
+			}),
+		}}
+	/>
+	<Text
+		anchor={0.5}
+		x={150}
+		y={44}
+		text="LAST HIT"
+		alpha={0.5}
+		style={{
+			fontFamily: 'proxima-nova',
+			fontSize: 17,
+			fontWeight: '700',
+			letterSpacing: 5,
+			fill: MUTED,
+		}}
+	/>
+	<Text
+		anchor={0.5}
+		x={150}
+		y={86}
+		scale={hitScale.current}
+		text={lastHit?.text ?? '—'}
+		alpha={lastHit ? 1 : 0.35}
+		style={{
+			fontFamily: 'monospace',
+			fontSize: 44,
+			fontWeight: '800',
+			fill: lastHit?.color ?? MUTED,
+			...(lastHit && {
+				dropShadow: { distance: 0, blur: 14, color: lastHit.color, alpha: 0.9, angle: 0 },
 			}),
 		}}
 	/>

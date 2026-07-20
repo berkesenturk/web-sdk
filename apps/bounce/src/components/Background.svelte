@@ -6,11 +6,11 @@
 	const context = getContext();
 	const canvas = $derived(context.stateLayoutDerived.canvasSizes());
 
-	// Office backdrop authored at 2039x1000 (stateLayout backgroundRatio.normal).
-	// Cover-fit it to the canvas: one uniform scale (the larger of the two axis
-	// ratios) so it always fills the window, cropping the overflow, centred. The
-	// flat base sits behind in case the aspect ever leaves a sliver uncovered.
-	const BG_NATIVE = { width: 2039, height: 1000 };
+	// Office backdrop, cover-fit to the canvas: one uniform scale (the larger of
+	// the two axis ratios) so it always fills the window, cropping the overflow,
+	// centred. The flat base sits behind in case the aspect ever leaves a sliver
+	// uncovered. Keep BG_NATIVE = the image file's real pixel size.
+	const BG_NATIVE = { width: 1740, height: 904 };
 	const cover = $derived(
 		Math.max(canvas.width / BG_NATIVE.width, canvas.height / BG_NATIVE.height),
 	);

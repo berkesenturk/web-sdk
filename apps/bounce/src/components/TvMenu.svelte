@@ -16,10 +16,11 @@
 	let open = $state(false);
 	const pressSound = () => context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 
-	// The MENÜ pill + dropdown items. Sized so the ~50%-larger labels sit clearly
-	// inside (wider than the baked SES/BİLGİ pills — the interactive menu reads
-	// bigger for legibility). x is the baked MENÜ centre.
-	const MENU_PILL = { x: 39.5, y: 552.5, width: 48, height: 16 };
+	// The MENÜ pill + dropdown items. The pill matches the baked SES/BİLGİ pills
+	// (31x12.5 measured from the cabinet art, same hit/hover size — see TvFrame's
+	// cabinetButtons) so the three stacked buttons read identical; the dropdown
+	// items stay wider for their longer labels. x is the pill column centre.
+	const MENU_PILL = { x: 39.5, y: 552.5, width: 31, height: 12.5 };
 	const ITEM = { width: 48, height: 16, spacing: 18 };
 
 	const soundLabel = $derived(stateSound.volumeValueMaster === 0 ? 'SOUND OFF' : 'SOUND ON');

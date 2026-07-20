@@ -1,6 +1,6 @@
 export default {
-	// Full-canvas backdrop behind the TV cabinet. Authored at 2039x1000, the same
-	// ratio as stateLayout's backgroundRatio.normal, so it cover-fits any window.
+	// Full-canvas backdrop behind the TV cabinet, cover-fit to the window
+	// (Background.svelte's BG_NATIVE must match this file's pixel size).
 	officeBackground: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/office-background/office_background.png', import.meta.url).href,

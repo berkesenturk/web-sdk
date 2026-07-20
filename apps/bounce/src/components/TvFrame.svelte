@@ -54,14 +54,16 @@
 
 	const cabinetButtons = [
 		{
-			x: 39, y: 571, width: 44, height: 16, // SES pill
+			// SES / BİLGİ hit+hover areas match the baked pills exactly (31x12.5
+			// measured from the cabinet art), same as the live MENÜ pill above them.
+			x: 39.5, y: 569, width: 31, height: 12.5, // SES pill
 			onpress: () => {
 				pressSound();
 				stateSound.volumeValueMaster = stateSound.volumeValueMaster === 0 ? 50 : 0;
 			},
 		},
 		{
-			x: 39, y: 588, width: 44, height: 16, // BİLGİ pill
+			x: 39.5, y: 586, width: 31, height: 12.5, // BİLGİ pill
 			onpress: () => { pressSound(); stateModal.modal = { name: 'gameRules' }; },
 		},
 		{
@@ -161,8 +163,8 @@
 		x={382.8}
 		y={562.3}
 		anchor={0.5}
-		width={29}
-		height={29}
+		width={23}
+		height={23}
 		borderRadius={5}
 		backgroundAlpha={0}
 		borderWidth={3}
