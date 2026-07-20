@@ -129,16 +129,17 @@ isVisualMitosis(zone): boolean =
 
 ### Clone disc (split) — new `CloneDisc.svelte` + spawner in `TvScene.svelte`
 
-- Trigger: EVERY mythosis-tile hit spawns a new clone — no two-disc cap; the
-  fleet grows as much as the hits produce (user: "whenever one dvd is hit there
-  will be a second so they can increase as much as possible"). Sources:
-  - the real disc: a `discBounce` emitter event whose `zoneIndex` resolves to a
-    visually-swapped mythosis zone (booked `isGlow`/`isDead` are false by
-    construction of the predicate);
-  - a clone: when a clone's simulated wall reflection lands on a
-    visually-swapped mythosis zone, it too splits (spawns another clone).
-  A performance ceiling of 16 live clones guards the exponential MYTHOSIS+
-  case (1-in-2 tiles → doubling per bounce); beyond it, hits stop splitting.
+- Trigger: a REAL (booked) disc hit on a visually-swapped mythosis zone — a
+  `discBounce` emitter event whose contact resolves to one (booked
+  `isGlow`/`isDead` are false by construction of the predicate). Each such hit
+  is a BINARY split: exactly one clone spawns, so one hit pops exactly two
+  DVDs off that tile (user: "from one hit to the mythosis tile only two DVDs
+  can pop up"). The fleet still grows across the round — every further real
+  hit adds another clone (user: "whenever one dvd is hit there will be a
+  second so they can increase as much as possible") — but clones' own
+  simulated wall contacts never split (a silent, FX-less spawn read as more
+  than two DVDs popping from one hit). MAX_CLONES = 16 stays as a safety
+  ceiling.
 - Clones do NOT score for now (user: real mitosis discs would score, but at
   this stage only the visuals matter). No tile FX, no HUD impact.
 - Spawn at the real disc's contact pixel. Initial velocity = the real disc's
@@ -177,9 +178,10 @@ the HTML mock's board generator, not ours.)
   board change only after ✓.
 - Backdrop/✕ discard; no auto-close on selection.
 - All dark-screen text Courier with glow; no native form controls.
-- MYTHOSIS/+: swapped tiles render mitosis art; every mythosis hit splits the
-  hitting DVD in two, opposite directions — the fleet keeps growing (clones
-  split too, ceiling 16); clones don't score (visuals-only for now).
+- MYTHOSIS/+: swapped tiles render mitosis art; every REAL mythosis hit splits
+  the hitting DVD in exactly two, opposite directions (one hit → two DVDs, no
+  more) — the fleet grows one clone per hit, ceiling 16; clones never split on
+  their own wall contacts and don't score (visuals-only for now).
 - CORNER RUSH: corner tiles pulse.
 - A full round plays clean in every mode (booked path, HUD, balance identical
   to NORMAL behaviour).

@@ -3,7 +3,7 @@
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { toPixel, hitVisualZone, isVisualMitosis, INNER } from '../game/boardGeometry';
+	import { toPixel, hitVisualZone, isVisualMitosis } from '../game/boardGeometry';
 	import {
 		BOARD_SIZES,
 		ZONE_THICKNESS,
@@ -14,14 +14,15 @@
 	} from '../game/constants';
 	import CloneDiscAnimations from './CloneDiscAnimations.svelte';
 
-	// Decorative clone DVDs for the MYTHOSIS visual modes. Every hit on a
-	// visually-swapped mitosis tile splits the hitting disc: a clone spawns at
-	// the contact and leaves opposite to the hitter (= its incoming direction
-	// negated, the mirror of its outgoing direction across the wall normal).
-	// Clones fly straight at DISC_SPEED, reflect off the same edge-inset bounds
-	// as the real disc, squash + tint-step per contact, and split again when
-	// they strike a swapped tile. They NEVER score (visuals only, per spec) and
-	// vanish on skip / round end. MAX_CLONES guards the MYTHOSIS+ exponential.
+	// Decorative clone DVDs for the MYTHOSIS visual modes. Every REAL (booked)
+	// hit on a visually-swapped mitosis tile is a binary split: exactly one
+	// clone spawns at the contact and leaves opposite to the hitter (= its
+	// incoming direction negated, the mirror of its outgoing direction across
+	// the wall normal) — one hit, two DVDs. Clones fly straight at DISC_SPEED,
+	// reflect off the same edge-inset bounds as the real disc, and squash +
+	// tint-step per contact, but never split or score themselves (visuals
+	// only, per spec); the fleet grows only through real hits. Clones vanish
+	// on skip / round end. MAX_CLONES is a safety ceiling.
 	const context = getContext();
 
 	type Clone = { id: number; x: number; y: number; vx: number; vy: number; bounces: number };
@@ -62,32 +63,13 @@
 		});
 	};
 
-	// A clone struck a wall: squash/tint (bounces++), and split off another
-	// clone if the tile under the contact is a visually-swapped mitosis cell.
-	// `inVx/inVy` is the velocity BEFORE reflection; the child leaves opposite
-	// the parent, i.e. along the negated incoming direction.
-	const cloneContact = (clone: Clone, inVx: number, inVy: number) => {
-		clone.bounces += 1;
-		const norm = {
-			x: clamp((clone.x - t) / INNER.width, 0, 1),
-			y: clamp((clone.y - t) / INNER.height, 0, 1),
-		};
-		// Snap the struck coordinate to the exact wall so hitVisualZone matches.
-		if (clone.x <= MIN_X) norm.x = 0;
-		else if (clone.x >= MAX_X) norm.x = 1;
-		if (clone.y <= MIN_Y) norm.y = 0;
-		else if (clone.y >= MAX_Y) norm.y = 1;
-		const hit = hitVisualZone(stateGame.zones, norm);
-		if (hit && isVisualMitosis(hit, stateGame.visualMode)) {
-			spawn(clone.x, clone.y, -inVx, -inVy);
-		}
-	};
-
+	// Clone wall contacts only squash/tint — they never split. A mythosis hit
+	// is a BINARY split (one hit → exactly two DVDs leave the tile), so new
+	// clones come only from the real disc's booked hits (discBounce below),
+	// where the tile flash + coupon make the cause visible.
 	const step = (dtRaw: number) => {
 		const dt = Math.min(dtRaw, MAX_STEP_MS);
 		for (const clone of clones) {
-			const inVx = clone.vx;
-			const inVy = clone.vy;
 			clone.x += clone.vx * dt;
 			clone.y += clone.vy * dt;
 			let struck = false;
@@ -101,7 +83,7 @@
 				clone.vy = -clone.vy;
 				struck = true;
 			}
-			if (struck) cloneContact(clone, inVx, inVy);
+			if (struck) clone.bounces += 1;
 		}
 	};
 
