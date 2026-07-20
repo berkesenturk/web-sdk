@@ -41,14 +41,18 @@
 
 	// Sign tracks the cabinet: spec px are treated as rig px and scaled by the
 	// cabinet's canvas scale, anchored to the cabinet's top-left (rig y=10 is
-	// the cabinet's visible top edge — see tvLayout.ts).
+	// the cabinet's visible top edge — see tvLayout.ts). On width-constrained
+	// viewports tv.x is 0 and the wall slot vanishes — clamp the sign on-screen
+	// (over the cabinet) so the only entry point to the mode modal stays
+	// reachable.
 	const tv = $derived(tvTransform(context.stateLayoutDerived.canvasSizes()));
 	const s = $derived(tv.scale);
+	const signLeft = $derived(Math.max(8, tv.x - (56 + 196) * s));
 </script>
 
 <button
 	class="mode-sign"
-	style="left: {tv.x - (56 + 196) * s}px; top: {tv.y + 10 * s}px; --s: {s}"
+	style="left: {signLeft}px; top: {tv.y + 10 * s}px; --s: {s}"
 	onclick={openModal}
 >
 	<div class="sign-well">

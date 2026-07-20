@@ -67,6 +67,9 @@ One Svelte file (DOM, no pixi) rendered from `Game.svelte` next to the existing
   (Courier 13/700, ls 2, `#6fc9f0` + glow).
 - Breathing opacity 0.85→1→0.85 2.2s infinite; hover `brightness(1.15)`;
   cursor pointer; click opens the modal (`stagedMode = applied`).
+- Width-constrained viewports (portrait): the wall slot vanishes (`tv.x = 0`),
+  so the sign's left edge clamps to `max(8px, tv.x − 252·s)` — it overlaps the
+  cabinet's top-left corner but stays reachable (final-review fix).
 
 ### Modal (small retro TV)
 
