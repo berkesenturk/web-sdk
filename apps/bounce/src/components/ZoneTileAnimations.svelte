@@ -13,11 +13,11 @@
 	// Imperative animation control for one zone tile, TvAnimations-style:
 	// track 0 holds the base pose (gem reveal / mine+cell idle), track 1 plays
 	// the one-shot hit and mixes back out to the held base.
-	let { zone }: { zone: Zone } = $props();
+	let { zone, look }: { zone: Zone; look: 'gem' | 'mine' | 'mitosis' } = $props();
 	const context = getContext();
 	const spine = getContextSpine();
 
-	const kind = zone.isDead ? 'mine' : zone.isGlow ? 'mitosis' : 'gem';
+	const kind = look;
 	const hitAnimation = kind === 'mitosis' ? 'split' : 'hit';
 
 	// The gem's baked "0.25x" label can't show real zone values: drop the

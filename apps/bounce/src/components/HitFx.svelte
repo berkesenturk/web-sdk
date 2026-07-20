@@ -3,7 +3,7 @@
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { toPixel, fmtZoneVal, hitVisualZone } from '../game/boardGeometry';
+	import { toPixel, fmtZoneVal, hitVisualZone, isVisualMitosis } from '../game/boardGeometry';
 	import { BOARD_SIZES, POP_SCALE } from '../game/constants';
 	import type { Vec2 } from '../game/types';
 	import PopAnimation from './PopAnimation.svelte';
@@ -69,8 +69,8 @@
 				// mine: the tile's hit anim is joined by the BOOM pop + explosion
 				spawn('explosion', 'explode', emitterEvent.position);
 				spawn('boomPop', 'pop', emitterEvent.position);
-			} else if (hit.isGlow) {
-				// mitosis cell split hands out its ×2 coupon
+			} else if (hit.isGlow || isVisualMitosis(hit, stateGame.visualMode)) {
+				// mitosis cell split hands out its ×2 coupon (real or visual-mode dress-up)
 				spawn('mitosisPop', 'pop', emitterEvent.position);
 			} else if (hit.value > 0) {
 				// gem: pop the value shown on the tile the disc hit
