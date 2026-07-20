@@ -12,6 +12,10 @@ export type GameType = 'basegame';
 export type Wall = 'top' | 'bottom' | 'left' | 'right';
 export type DvdMode = 'independent' | 'sequential';
 
+// Cosmetic mode from the wall-sign selector (ModeSelector). Purely visual:
+// gameplay always plays the booked `normal` mode regardless of this value.
+export type VisualMode = 'normal' | 'corner_rush' | 'mythosis' | 'mythosis_plus';
+
 // Board-normalized (0..1) coordinate, as stored in the book.
 export type Vec2 = { x: number; y: number };
 

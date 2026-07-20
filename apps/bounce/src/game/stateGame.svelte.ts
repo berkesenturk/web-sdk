@@ -1,4 +1,4 @@
-import type { GameType, ModeName, DvdMode, Zone } from './types';
+import type { GameType, ModeName, DvdMode, VisualMode, Zone } from './types';
 import type { BookEventOfType } from './typesBookEvent';
 
 // Reactive board state the renderer draws from. The board (zones) is set once per
@@ -37,6 +37,9 @@ export const stateGame = $state({
 	// CRT scanlines overlay on the screen (MENÜ toggle). Display preference —
 	// deliberately untouched by reset()/settle(), so it survives rounds.
 	scanlines: true,
+	// Cosmetic mode from the wall-sign selector (see ModeSelector.svelte).
+	// Display preference like `scanlines`: untouched by settle()/reset().
+	visualMode: 'normal' as VisualMode,
 });
 
 // Apply a reveal event's board to state without animation (used by both the

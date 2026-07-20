@@ -4,7 +4,7 @@
 // the disc centre touches the inner face of the struck band, and draw the 40
 // zones as the surrounding frame.
 import { BOARD_SIZES, ZONE_THICKNESS, VISUAL_TILES_PER_WALL } from './constants';
-import type { Zone, Vec2, Wall } from './types';
+import type { Zone, Vec2, Wall, VisualMode } from './types';
 
 export const LOGO_COLORS = [0xe50914, 0xff6b00, 0x00d26a, 0x00bfff, 0xa259ff, 0xff2d78];
 
@@ -47,6 +47,17 @@ export const hitVisualZone = (zones: Zone[], p: Vec2): Zone | undefined => {
 	return toVisualZones(zones).find(
 		(z) => z.wall === c.wall && c.fraction >= z.start && c.fraction < z.end,
 	);
+};
+
+// Which plain gem zones the MYTHOSIS modes dress up as mitosis cells (art/FX
+// only — booked behaviour is untouched). Pure function of zoneIndex so tile
+// art (ZoneTile), impact FX (HitFx) and clone spawning (CloneDiscs) always
+// agree. ~1-in-5 for mythosis, 1-in-2 for mythosis_plus.
+export const isVisualMitosis = (zone: Zone, visualMode: VisualMode): boolean => {
+	if (zone.value <= 0 || zone.isGlow || zone.isDead) return false;
+	if (visualMode === 'mythosis') return zone.zoneIndex % 5 === 2;
+	if (visualMode === 'mythosis_plus') return zone.zoneIndex % 2 === 0;
+	return false;
 };
 
 export const fmtZoneVal = (value: number): string => {
