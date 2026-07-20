@@ -33,6 +33,18 @@
 		return c !== null && c.wall === zone.wall && c.fraction >= zone.start && c.fraction < zone.end;
 	};
 
+	// Applying a mode from the selector resets the board: every tile flips
+	// back to its "?" face, so the switch reads as a fresh gameboard instead
+	// of last round's revealed values wearing new art.
+	let lastMode = stateGame.visualMode;
+	$effect(() => {
+		const mode = stateGame.visualMode;
+		if (mode === lastMode) return;
+		lastMode = mode;
+		revealed = false;
+		byHit = false;
+	});
+
 	context.eventEmitter.subscribeOnMount({
 		discBounce: (emitterEvent) => {
 			if (revealed || !hitsMe(emitterEvent.position)) return;
