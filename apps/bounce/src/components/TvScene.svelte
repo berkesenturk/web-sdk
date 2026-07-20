@@ -17,6 +17,7 @@
 	import ScreenHud from './ScreenHud.svelte';
 	import Board from './Board.svelte';
 	import Disc from './Disc.svelte';
+	import CloneDiscs from './CloneDiscs.svelte';
 	import HitFx from './HitFx.svelte';
 
 	const context = getContext();
@@ -84,6 +85,7 @@
 	{#each discs as dvdIndex (dvdIndex)}
 		<Disc {dvdIndex} />
 	{/each}
+	<CloneDiscs />
 	<HitFx />
 	{#if stateGame.scanlines}
 		<Graphics draw={drawScanlines} />
