@@ -11,6 +11,7 @@
 	import { getContext } from '../game/context';
 	import { TV_WIDEN, DESIGN_MODE } from '../game/constants';
 	import { tvTransform } from '../game/tvLayout';
+	import ModeSelector from '../components-dom/ModeSelector.svelte';
 	import EnableGameActor from './EnableGameActor.svelte';
 	import ResumeBet from './ResumeBet.svelte';
 	import Background from './Background.svelte';
@@ -75,6 +76,10 @@
 		{/if}
 	{/if}
 </App>
+
+{#if !DESIGN_MODE && !context.stateLayout.showLoadingScreen && stateUi.config.mode !== 'replay'}
+	<ModeSelector />
+{/if}
 
 <Modals>
 	{#snippet version()}
