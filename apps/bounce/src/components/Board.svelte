@@ -9,7 +9,6 @@
 	import {
 		BOARD_SIZES,
 		ZONE_THICKNESS,
-		REVEAL_WAVE_DURATION,
 		DESIGN_MODE,
 		DESIGN_COLORS,
 	} from '../game/constants';
@@ -19,12 +18,12 @@
 	const context = getContext();
 	const t = ZONE_THICKNESS;
 
-	// The tiles' intro wave runs on mount (they remount per round, keyed by zone
-	// object below); this await paces the reveal book event so the first bounce
-	// doesn't launch mid-wave.
+	// Tiles start the round hidden ("?" until struck — see ZoneTile), so there
+	// is no intro wave to pace anymore; keep a short beat so the fresh hidden
+	// board reads before the disc spawns.
 	context.eventEmitter.subscribeOnMount({
 		boardReset: async () => {
-			if (!stateBet.isTurbo && !stateGame.skip) await waitForTimeout(REVEAL_WAVE_DURATION);
+			if (!stateBet.isTurbo && !stateGame.skip) await waitForTimeout(400);
 		},
 	});
 

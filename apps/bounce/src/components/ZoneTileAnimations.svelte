@@ -1,67 +1,91 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getContextSpine, SpineSlot, Container, Text } from 'pixi-svelte';
-	import { stateBet } from 'state-shared';
-	import { waitForTimeout } from 'utils-shared/wait';
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
 	import { fmtZoneVal, contactWallFraction } from '../game/boardGeometry';
-	import { REVEAL_STAGGER } from '../game/constants';
 	import type { Zone } from '../game/types';
 
 	// Imperative animation control for one zone tile, TvAnimations-style:
-	// track 0 holds the base pose (gem reveal / mine+cell idle), track 1 plays
-	// the one-shot hit and mixes back out to the held base.
-	let { zone, look }: { zone: Zone; look: 'gem' | 'mine' | 'mitosis' } = $props();
+	// track 0 holds the base pose, track 1 plays the one-shot hit and mixes
+	// back out to the held base. The parent remounts this component whenever
+	// the tile flips ({#key} on revealed/rig), so the phase is fixed at mount:
+	// hidden = the gem rig's "?" hold; revealed = the real face, with the hit
+	// flash layered on when the flip was caused by a strike (byHit).
+	let {
+		zone,
+		look,
+		revealed,
+		byHit,
+	}: {
+		zone: Zone;
+		look: 'gem' | 'mine' | 'mitosis';
+		revealed: boolean;
+		byHit: boolean;
+	} = $props();
 	const context = getContext();
 	const spine = getContextSpine();
 
-	const kind = look;
+	const kind = revealed ? look : 'hidden';
 	const hitAnimation = kind === 'mitosis' ? 'split' : 'hit';
 
-	// The gem's baked "0.25x" label can't show real zone values: drop the
-	// attachment for good (the anims only key slot rgba, never attachments) and
-	// render live text in its place. The text follows the mult bone via
-	// SpineSlot; the slot's animated alpha (reveal fade-in, hit flash) is
-	// mirrored per frame because spine only fades its own attachments.
+	// The gem rig (which also hosts the hidden "?" face) bakes a "0.25x" label
+	// that can't show real zone values: drop the attachment for good (the anims
+	// only key slot rgba, never attachments) and render live text in its place
+	// once the gem is revealed. The text follows the mult bone via SpineSlot;
+	// the slot's animated alpha (reveal fade-in, hit flash) is mirrored per
+	// frame because spine only fades its own attachments.
 	let multAlpha = $state(0);
-	if (kind === 'gem') {
+	if (kind === 'gem' || kind === 'hidden') {
 		const multSlot = spine.skeleton.findSlot('mult');
 		multSlot?.setAttachment(null);
-		spine.beforeUpdateWorldTransforms = () => {
-			if (multSlot) multAlpha = multSlot.color.a;
-		};
+		if (kind === 'gem') {
+			spine.beforeUpdateWorldTransforms = () => {
+				if (multSlot) multAlpha = multSlot.color.a;
+			};
+		}
 	}
 
-	// Round intro. Tiles remount on every reveal (Board keys the each-block by
-	// zone object), so the intro runs from onMount rather than boardReset — a
-	// freshly mounted tile could miss that broadcast. Board owns the pacing
-	// await; turbo skips the stagger.
+	// Rules: value colors by tier — green 0–1x, cyan 1–5x, gold 5–15x,
+	// red/pink 15x+; dead tiles (value 0) show a gray "0".
+	const tierFill =
+		zone.value <= 0
+			? 0x9aa3b5
+			: zone.value < 1
+				? 0x7dff9c
+				: zone.value < 5
+					? 0x5ad7ff
+					: zone.value < 15
+						? 0xffd94d
+						: 0xff5a7a;
+
 	onMount(() => {
-		if (kind === 'gem') {
+		if (kind === 'hidden') {
+			// Held "?" pose; the parent remounts us with revealed=true to flip.
 			spine.state.setAnimation(0, 'unrevealed', false);
-			// value-0 gems are the pre-bet placeholder board: hold the question
-			// pose forever (the first reveal event swaps in real zones and remounts)
-			if (zone.value <= 0) return;
-			const delay = stateBet.isTurbo ? 0 : zone.zoneIndex * REVEAL_STAGGER;
-			waitForTimeout(delay).then(() => {
-				// completed non-looping entry keeps holding the revealed pose; the
-				// tile may have been unmounted mid-wave by the next round's remount
-				if (!spine.destroyed) spine.state.setAnimation(0, 'reveal', false);
-			});
+			return;
+		}
+		if (kind === 'gem') {
+			spine.state.setAnimation(0, 'reveal', false);
 		} else {
 			spine.state.setAnimation(0, 'idle', true);
 		}
+		if (byHit) {
+			spine.state.setAnimation(1, hitAnimation, false);
+			spine.state.addEmptyAnimation(1, 0.2, 0);
+		}
 	});
 
-	// Flash the tile the disc is actually OVER (by contact position), not the one
-	// whose zoneIndex was booked — the two diverge because 10 booked zones are
-	// folded into 8 visual tiles per wall.
+	// Repeat strikes on an already-revealed tile flash again. Matched by the
+	// disc's contact POSITION, not zoneIndex — 10 booked zones fold into 8
+	// visual tiles per wall, so only the tile the disc is over reacts. (The
+	// flip's own flash plays from onMount; a freshly remounted tile subscribes
+	// after that broadcast finishes, so the revealing hit never double-fires.)
 	context.eventEmitter.subscribeOnMount({
 		discBounce: (emitterEvent) => {
 			// A mid-round SPIN (skip) cuts to the result — don't flash the rest.
-			if (stateGame.skip) return;
+			if (kind === 'hidden' || stateGame.skip) return;
 			const c = contactWallFraction(emitterEvent.position);
 			if (!c || c.wall !== zone.wall || c.fraction < zone.start || c.fraction >= zone.end) return;
 			spine.state.setAnimation(1, hitAnimation, false);
@@ -75,13 +99,13 @@
 		<Container alpha={multAlpha}>
 			<Text
 				anchor={0.5}
-				text={`${fmtZoneVal(zone.value)}x`}
+				text={zone.value > 0 ? `${fmtZoneVal(zone.value)}x` : '0'}
 				style={{
 					fontFamily: 'proxima-nova',
 					fontSize: 32,
 					fontWeight: '800',
-					fill: 0xffffff,
-					stroke: { color: 0x0a4b5c, width: 5 },
+					fill: tierFill,
+					stroke: { color: 0x0a2430, width: 5 },
 				}}
 			/>
 		</Container>
