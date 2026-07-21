@@ -8,10 +8,9 @@
 // and are picked uniformly at random — good enough for local play; payout
 // distribution is NOT the real math. Book `payoutMultiplier` here is already a
 // float multiplier (unlike bounce's integer-cents books), so it is used as-is.
-// The books files are pure `export default [...]` literals but are huge (base is
-// 20 MB / 732k lines) — running them through Vite's SSR transform OOMs a 2 GB
-// Node heap, so they are read and evaluated directly instead.
-// Nothing here runs in `vite build`.
+// The books data lives in *_books.json (the .ts modules are thin re-export
+// shims — as TS literals the files were big enough to OOM Vite's transform),
+// so the plugin JSON.parses the files directly. Nothing here runs in `vite build`.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -28,8 +27,8 @@ const BET_LEVELS = [0.1, 1, 10, 100, 1000].flatMap((m) =>
 // Mode names match the client's default stateBet.activeBetModeKey ('BASE') and
 // the costs in src/game/config.ts betModes.
 const MODES = {
-	BASE: { books: 'base_books.ts', cost: 1, feature: true, buyBonus: false },
-	BONUS: { books: 'bonus_books.ts', cost: 100, feature: false, buyBonus: true },
+	BASE: { books: 'base_books.json', cost: 1, feature: true, buyBonus: false },
+	BONUS: { books: 'bonus_books.json', cost: 100, feature: false, buyBonus: true },
 };
 
 let balance = 1000 * API; // starting play-money balance
@@ -44,13 +43,7 @@ const bookCache = new Map(); // mode -> parsed books array
 const loadBooks = (mode) => {
 	if (bookCache.has(mode)) return bookCache.get(mode);
 	const file = path.resolve(DIR, '../src/stories/data', MODES[mode].books);
-	const text = fs.readFileSync(file, 'utf8');
-	// The file is `export default [ ... ];` — evaluate the literal directly.
-	// Evaluating it is equivalent to importing it (same trust level: it's this
-	// repo's own checked-in fixture module, not request-controlled input), and
-	// this dev-only path skips the Vite TS transform that OOMs on a 20 MB file.
-	const literal = text.slice(text.indexOf('export default') + 'export default'.length);
-	const books = new Function(`return (${literal.replace(/;\s*$/, '')})`)();
+	const books = JSON.parse(fs.readFileSync(file, 'utf8'));
 	bookCache.set(mode, books);
 	return books;
 };
