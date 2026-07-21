@@ -11,9 +11,11 @@ export type EmitterEventGame =
 	// clear the board / discs for a fresh spin
 	| { type: 'boardReset' }
 	// disc travel to the booked contact point (a wall contact or, before a
-	// discCorner, the exact corner). Awaited BEFORE the impact event so the FX
-	// only fire once the disc has arrived.
-	| { type: 'discMove'; dvdIndex: number; position: Vec2 }
+	// discCorner, the exact corner). PACING IS HANDLER-OWNED: the bounce/corner
+	// handlers compute `duration`, broadcast this, then wait it out themselves —
+	// the Disc component animates with the same duration but is never awaited,
+	// so a rendering hiccup can never let scoring outrun the motion.
+	| { type: 'discMove'; dvdIndex: number; position: Vec2; duration: number }
 	// one wall impact at the contact point: flash the struck tile, spawn the pop,
 	// advance the points HUD. Broadcast after discMove completes.
 	| {

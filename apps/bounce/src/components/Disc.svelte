@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Graphics, SpineProvider, type GraphicsProps } from 'pixi-svelte';
 	import { Tween } from 'svelte/motion';
-	import { stateBet } from 'state-shared';
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
@@ -10,19 +9,18 @@
 	import {
 		DISC_SIZES,
 		DISC_PLATE_NATIVE,
-		DISC_SPEED,
-		DISC_DURATION,
 		DISC_COLOR_CYCLE,
 		ZONE_THICKNESS,
 	} from '../game/constants';
 	import DiscAnimations from './DiscAnimations.svelte';
 
-	// One DVD (logo, spine rig). It only animates on discMove events for its own
-	// dvdIndex; motion between booked contact points is straight-line constant
-	// speed (the true DVD path — BOOK_CONTRACT geometry guarantees). dvdIndex 0
-	// spawns at the reveal's discStart on boardReset; split children mount
-	// mid-round with the split contact point as `spawn`. Concurrent DVDs each
-	// run their own move promise (cycle-parallel playback in utils.playBet).
+	// One DVD (logo, spine rig). Motion between booked contact points is
+	// straight-line at the handler-computed duration: the book handlers OWN the
+	// pacing (they broadcast discMove with `duration` and wait it out), this
+	// component only animates — it is never awaited, so a rendering hiccup can
+	// never desync scoring from motion. dvdIndex 0 spawns at the reveal's
+	// discStart on boardReset; split children mount mid-round with the split
+	// contact point as `spawn`.
 	let { dvdIndex, spawn }: { dvdIndex: number; spawn: Vec2 | null } = $props();
 	const context = getContext();
 
@@ -73,24 +71,21 @@
 		};
 	});
 
-	// Mid-round skip: snap the in-flight slide to its end and resolve the move that
-	// discMove is awaiting. We must resolve it explicitly — interrupting a running
-	// Tween.set() with another set() abandons the first set's promise (it never
-	// resolves), which would hang the round's awaited event chain.
+	// Mid-round skip: snap any in-flight slide to its end (the handlers stop
+	// waiting on their own — pacing is theirs, this is just the visual snap).
 	let targetX = 0;
 	let targetY = 0;
-	let onSkip: (() => void) | null = null;
 	$effect(() => {
-		if (stateGame.skip && onSkip) {
+		if (stateGame.skip && visible) {
 			x.set(targetX, { duration: 0 });
 			y.set(targetY, { duration: 0 });
-			onSkip();
-			onSkip = null;
 		}
 	});
 
-	const placeAt = (px: number, py: number) =>
-		Promise.all([x.set(px, { duration: 0 }), y.set(py, { duration: 0 })]);
+	const placeAt = (px: number, py: number) => {
+		x.set(px, { duration: 0 });
+		y.set(py, { duration: 0 });
+	};
 
 	const reset = () => {
 		visible = false;
@@ -112,27 +107,18 @@
 		discCorner: (emitterEvent) => {
 			if (emitterEvent.dvdIndex === dvdIndex) colorIndex += 1;
 		},
-		discMove: async (emitterEvent) => {
+		discMove: (emitterEvent) => {
 			if (emitterEvent.dvdIndex !== dvdIndex) return;
 			const target = contactPixel(emitterEvent.position);
 			targetX = target.x;
 			targetY = target.y;
-			// Already skipping (or first placement) → jump instantly.
-			if (!visible || stateGame.skip) {
+			if (!visible || stateGame.skip || emitterEvent.duration <= 0) {
 				visible = true;
-				await placeAt(target.x, target.y);
+				placeAt(target.x, target.y);
 				return;
 			}
-			const dist = Math.hypot(target.x - x.current, target.y - y.current);
-			const factor = stateBet.isTurbo ? 0.35 : 1;
-			const duration =
-				(Math.min(DISC_DURATION.max, Math.max(DISC_DURATION.min, dist / DISC_SPEED)) * factor) /
-				stateGame.devSpeed;
-			const move = Promise.all([x.set(target.x, { duration }), y.set(target.y, { duration })]);
-			// Resolve as soon as EITHER the slide finishes OR a skip snaps it (above).
-			const skipped = new Promise<void>((resolve) => (onSkip = resolve));
-			await Promise.race([move, skipped]);
-			onSkip = null;
+			x.set(target.x, { duration: emitterEvent.duration });
+			y.set(target.y, { duration: emitterEvent.duration });
 		},
 		// Round resolved (finalWin): the disc leaves the board. It reappears on the
 		// next round's boardReset (which remounts the rig, replaying reveal→idle).

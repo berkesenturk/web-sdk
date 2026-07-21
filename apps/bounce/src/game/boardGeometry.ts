@@ -5,7 +5,7 @@
 // (corner square + 8 tiles + corner square, each ZONE_THICKNESS wide). Star
 // grazes (fractions <0.1 / >=0.9) therefore land on the corner squares, and a
 // booked tileIndex IS the visual tile — no folding or position-matching needed.
-import { BOARD_SIZES, ZONE_THICKNESS } from './constants';
+import { BOARD_SIZES, ZONE_THICKNESS, DISC_SPEED, DISC_DURATION } from './constants';
 import type { PlayableTile, Vec2 } from './types';
 
 export const LOGO_COLORS = [0xe50914, 0xff6b00, 0x00d26a, 0x00bfff, 0xa259ff, 0xff2d78];
@@ -19,6 +19,16 @@ export const toPixel = (p: Vec2): Vec2 => ({
 	x: p.x * BOARD_SIZES.width,
 	y: p.y * BOARD_SIZES.height,
 });
+
+// Constant-DVD-speed travel time between two board-normalized points, in ms.
+// Used by BOTH the book handlers (which pace playback on it) and the Disc
+// tween (which animates with it), so motion and scoring can never drift.
+export const travelDuration = (from: Vec2, to: Vec2): number => {
+	const a = toPixel(from);
+	const b = toPixel(to);
+	const dist = Math.hypot(b.x - a.x, b.y - a.y);
+	return Math.min(DISC_DURATION.max, Math.max(DISC_DURATION.min, dist / DISC_SPEED));
+};
 
 export type Rect = { x: number; y: number; w: number; h: number };
 

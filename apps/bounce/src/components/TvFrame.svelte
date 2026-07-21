@@ -4,7 +4,7 @@
 	import { stateBet, stateBetDerived, stateConfig, stateModal, stateSound } from 'state-shared';
 
 	import { getContext } from '../game/context';
-	import { stateGame } from '../game/stateGame.svelte';
+	import { stateGame, stateGameDerived } from '../game/stateGame.svelte';
 	import { TV_RIG_SIZES } from '../game/constants';
 	import TvAnimations from './TvAnimations.svelte';
 
@@ -43,7 +43,7 @@
 
 	const spin = () => {
 		if (!idle()) {
-			stateGame.skip = true;
+			stateGameDerived.requestSkip();
 			return;
 		}
 		if (!stateBetDerived.isBetCostAvailable()) return;

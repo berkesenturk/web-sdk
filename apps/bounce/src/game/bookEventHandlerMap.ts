@@ -3,27 +3,55 @@ import { tick } from 'svelte';
 
 import { type BookEventHandlerMap } from 'utils-book';
 import { stateBet } from 'state-shared';
+import { waitForTimeout } from 'utils-shared/wait';
 
 import { eventEmitter } from './eventEmitter';
 import { playBookEvent } from './utils';
+import { travelDuration } from './boardGeometry';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
+import type { Vec2 } from './types';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 
 // One async handler per book-event type. Handlers contain NO Pixi: they update
 // reactive state and broadcast render commands (emitter events); the components
-// own the actual animation. `await broadcastAsync(...)` paces playback to the
-// animation it triggers.
+// own the actual animation.
 //
-// Multi-DVD rounds run cycle-parallel (utils.playBet): handlers of different
-// DVDs in one round-robin cycle run CONCURRENTLY, so runningTotal only ever
-// ratchets upward (per-event values within a cycle may arrive out of order).
+// PACING IS HANDLER-OWNED: for disc travel the handler computes the duration
+// (constant DVD speed over the booked distance), broadcasts discMove with it,
+// and waits it out itself. Components animate with the same duration but are
+// never awaited — scoring can therefore never outrun the motion, even if a
+// component misses an event. Multi-DVD rounds run one independent pipeline per
+// DVD (utils.playBet), so runningTotal only ever ratchets upward.
 const advanceRunningTotal = (runningTotal: number) => {
 	if (runningTotal > stateGame.runningTotal) stateGame.runningTotal = runningTotal;
+};
+
+// Last booked position per DVD this round: spawn (reveal), split point
+// (split), then every contact — the travel-time base for the next move.
+const discPositions = new Map<number, Vec2>();
+
+// Wait `ms`, but resolve immediately when a mid-round SPIN skips. ONE timer
+// raced against the skip signal — never a chain of short timeouts (browsers
+// throttle chained timers to ~1s each in occluded pages, which froze rounds).
+const skippableWait = (ms: number) =>
+	Promise.race([waitForTimeout(ms), stateGameDerived.untilSkip()]);
+
+// Broadcast the move and pace on it: constant DVD speed, turbo and the dev
+// speed slider scale it, skip (or an unknown start) makes it instant.
+const moveDisc = async (dvdIndex: number, to: Vec2) => {
+	const from = discPositions.get(dvdIndex);
+	const factor = (stateBet.isTurbo ? 0.35 : 1) / stateGame.devSpeed;
+	const duration = !from || stateGame.skip ? 0 : travelDuration(from, to) * factor;
+	eventEmitter.broadcast({ type: 'discMove', dvdIndex, position: to, duration });
+	discPositions.set(dvdIndex, to);
+	if (duration > 0) await skippableWait(duration);
 };
 
 export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContext> = {
 	reveal: async (bookEvent: BookEventOfType<'reveal'>) => {
 		stateGameDerived.settle(bookEvent);
+		discPositions.clear();
+		discPositions.set(0, bookEvent.discStart);
 		// Note: stateGame.skip is cleared at bet start (stateGameDerived.reset in
 		// actor.onNewGameStart), NOT here — clearing it once the animation begins
 		// would wipe a skip the player pressed during the pre-animation delay.
@@ -33,13 +61,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		await eventEmitter.broadcastAsync({ type: 'boardReset' });
 	},
 	bounce: async (bookEvent: BookEventOfType<'bounce'>) => {
-		// Travel first: the impact FX (tile flash, pop, HUD tick) fire only once
-		// the disc has actually reached the contact point.
-		await eventEmitter.broadcastAsync({
-			type: 'discMove',
-			dvdIndex: bookEvent.dvdIndex,
-			position: bookEvent.position,
-		});
+		// Travel first (handler-paced): the impact FX (tile flash, pop, HUD tick)
+		// fire only once the disc has reached the contact point.
+		await moveDisc(bookEvent.dvdIndex, bookEvent.position);
 		advanceRunningTotal(bookEvent.runningTotal);
 		await eventEmitter.broadcastAsync({
 			type: 'discBounce',
@@ -52,8 +76,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			splitSuppressed: bookEvent.splitSuppressed,
 			runningTotal: bookEvent.runningTotal,
 		});
-		// A post-immunity mine destroys the DVD: unmount its disc (the explosion
-		// FX spawned by discBounce plays on independently in HitFx).
+		// A mine destroys the DVD: unmount its disc (the explosion FX spawned by
+		// discBounce plays on independently in HitFx).
 		if (bookEvent.lethal) {
 			stateGame.discs = stateGame.discs.filter((d) => d.dvdIndex !== bookEvent.dvdIndex);
 		}
@@ -61,10 +85,12 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	split: async (bookEvent: BookEventOfType<'split'>) => {
 		// Mount the children at the split point before the FX so they're visible
 		// as the pop plays; the parent disc unmounts in the same update. The
-		// tick() flush is load-bearing: without it the children's Disc
-		// components may not be subscribed yet when their first discMove
-		// broadcasts next cycle — the move would be silently dropped and tiles
-		// would score with no disc visibly travelling there.
+		// tick() flush lets the children's components mount and subscribe before
+		// any of their events broadcast.
+		discPositions.delete(bookEvent.parentDvdIndex);
+		for (const child of bookEvent.childDvdIndexes) {
+			discPositions.set(child, bookEvent.position);
+		}
 		stateGame.discs = [
 			...stateGame.discs.filter((d) => d.dvdIndex !== bookEvent.parentDvdIndex),
 			...bookEvent.childDvdIndexes.map((dvdIndex) => ({
@@ -85,11 +111,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		// The books guarantee the disc's reflected path terminates exactly on the
 		// booked corner (BOOK_CONTRACT geometry guarantees), so the disc really
 		// travels INTO the corner before the multiplier FX fire there.
-		await eventEmitter.broadcastAsync({
-			type: 'discMove',
-			dvdIndex: bookEvent.dvdIndex,
-			position: bookEvent.position,
-		});
+		await moveDisc(bookEvent.dvdIndex, bookEvent.position);
 		advanceRunningTotal(bookEvent.runningTotal);
 		await eventEmitter.broadcastAsync({
 			type: 'discCorner',

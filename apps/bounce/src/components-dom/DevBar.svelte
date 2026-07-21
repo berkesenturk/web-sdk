@@ -1,31 +1,24 @@
 <script lang="ts">
-	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { playBet, lastPlayedBet } from '../game/utils';
+	import { playBet } from '../game/utils';
 
 	// Dev-only helpers (rendered only under `vite dev`): replay the last played
 	// round's book and a live speed multiplier for round animations. Bypasses
 	// the bet machine on purpose — no wallet calls, pure animation replay.
-	const context = getContext();
-
-	let replaying = $state(false);
-	const canReplay = $derived(!replaying && context.stateXstateDerived.isIdle());
+	// Gated on the actual playback flag (works in replay mode too, where the
+	// xstate machine never reads as idle).
+	const canReplay = $derived(!stateGame.betPlaying && stateGame.lastBet != null);
 
 	const replay = async () => {
-		if (!canReplay || !lastPlayedBet) return;
-		replaying = true;
-		try {
-			stateGame.skip = false;
-			await playBet(lastPlayedBet);
-		} finally {
-			replaying = false;
-		}
+		if (!canReplay || !stateGame.lastBet) return;
+		stateGame.skip = false;
+		await playBet(stateGame.lastBet);
 	};
 </script>
 
 <div class="dev-bar">
 	<span class="tag">DEV</span>
-	<button onclick={replay} disabled={!canReplay || !lastPlayedBet}>⟲ replay round</button>
+	<button onclick={replay} disabled={!canReplay}>⟲ replay round</button>
 	<label>
 		speed ×{stateGame.devSpeed.toFixed(2)}
 		<input

@@ -8,8 +8,6 @@ import { bookEventHandlerMap } from './bookEventHandlerMap';
 
 export const { playBookEvent, playBookEvents } = createPlayBookUtils({ bookEventHandlerMap });
 
-// Last played bet, kept for the dev-only replay button (DevBar).
-export let lastPlayedBet: Bet | undefined;
 
 // Which DVD a disc-level event belongs to (its "turn" owner); null for the
 // round-level events (reveal / setTotalWin / finalWin / snapshot).
@@ -26,64 +24,76 @@ const turnDvd = (bookEvent: BookEvent): number | null => {
 	}
 };
 
-// The book interleaves concurrent DVDs in round-robin cycles: each cycle every
-// active DVD takes ONE turn — a bounce (+ its split) or a corner (+ its chain).
-// Play each cycle's turns CONCURRENTLY (the DVDs fly simultaneously, like the
-// rules describe) and barrier between cycles so the fleet stays in step; events
-// within one turn stay sequential. Single-DVD rounds degenerate to the plain
-// serial playback this replaces.
+// Multi-DVD playback: one independent pipeline per DVD. Each DVD plays its own
+// event sequence at its own pace (travel timing is handler-owned, constant DVD
+// speed), all pipelines run concurrently — DVDs flow naturally instead of
+// waiting on each other. Split children's pipelines are gated on their
+// parent's `split` event (which mounts their discs), and a DVD's disc is
+// removed the moment its last event has played so finished DVDs never sit
+// frozen while others fly. Round-level events (reveal / setTotalWin /
+// finalWin) are barriers: all pipelines drain first.
 export const playBet = async (bet: Bet) => {
-	lastPlayedBet = bet;
+	stateGame.lastBet = bet;
+	stateGame.betPlaying = true;
+	try {
+		await playBetInner(bet);
+	} finally {
+		stateGame.betPlaying = false;
+	}
+};
+
+const playBetInner = async (bet: Bet) => {
 	stateBet.winBookEventAmount = 0;
 	const bookEvents = bet.state;
 	const context = { bookEvents };
-	// A DVD's disc leaves the board the moment its LAST event has played —
-	// otherwise a finished DVD (e.g. after an unchained corner) sits frozen at
-	// its final contact while the other DVDs keep flying.
-	const lastEventIndex = new Map<number, number>();
-	for (const [index, bookEvent] of bookEvents.entries()) {
+
+	// Per-DVD event queues in stream order.
+	const queues = new Map<number, BookEvent[]>();
+	for (const bookEvent of bookEvents) {
 		const dvd = turnDvd(bookEvent);
-		if (dvd !== null) lastEventIndex.set(dvd, index);
+		if (dvd === null) continue;
+		const queue = queues.get(dvd);
+		if (queue) queue.push(bookEvent);
+		else queues.set(dvd, [bookEvent]);
 	}
-	const retireFinishedDvd = (group: BookEvent[]) => {
-		const last = group[group.length - 1];
-		const dvd = turnDvd(last);
-		if (dvd === null || lastEventIndex.get(dvd) !== last.index) return;
+
+	// Children may only start after their parent's split event has played
+	// (that's when their discs mount at the split point).
+	const gateResolvers = new Map<number, () => void>();
+	const gates = new Map<number, Promise<void>>();
+	for (const bookEvent of bookEvents) {
+		if (bookEvent.type !== 'split') continue;
+		for (const child of bookEvent.childDvdIndexes) {
+			gates.set(child, new Promise<void>((resolve) => gateResolvers.set(child, resolve)));
+		}
+	}
+
+	const runDvd = async (dvd: number) => {
+		await gates.get(dvd);
+		for (const bookEvent of queues.get(dvd) ?? []) {
+			await playBookEvent(bookEvent, context);
+			if (bookEvent.type === 'split') {
+				for (const child of bookEvent.childDvdIndexes) gateResolvers.get(child)?.();
+			}
+		}
+		// Out of events: this DVD is finished (completed, split, or died) —
+		// its disc leaves the board.
 		stateGame.discs = stateGame.discs.filter((d) => d.dvdIndex !== dvd);
 	};
-	let i = 0;
-	while (i < bookEvents.length) {
-		if (turnDvd(bookEvents[i]) === null) {
-			await playBookEvent(bookEvents[i], context);
-			i += 1;
-			continue;
+
+	const pipelines: Promise<void>[] = [];
+	const started = new Set<number>();
+	for (const bookEvent of bookEvents) {
+		const dvd = turnDvd(bookEvent);
+		if (dvd === null) {
+			await Promise.all(pipelines); // barrier before round-level events
+			await playBookEvent(bookEvent, context);
+		} else if (!started.has(dvd)) {
+			started.add(dvd);
+			pipelines.push(runDvd(dvd));
 		}
-		// Collect one cycle: per-DVD turn groups until a DVD would act twice.
-		const turns = new Map<number, BookEvent[]>();
-		while (i < bookEvents.length) {
-			const bookEvent = bookEvents[i];
-			const dvd = turnDvd(bookEvent);
-			if (dvd === null) break;
-			const group = turns.get(dvd);
-			if (!group) {
-				turns.set(dvd, [bookEvent]);
-			} else {
-				const last = group[group.length - 1];
-				const sameTurn =
-					(last.type === 'bounce' && bookEvent.type === 'split') ||
-					(last.type === 'corner' && bookEvent.type === 'chain');
-				if (!sameTurn) break; // this DVD acts again → next cycle
-				group.push(bookEvent);
-			}
-			i += 1;
-		}
-		await Promise.all(
-			[...turns.values()].map(async (group) => {
-				for (const bookEvent of group) await playBookEvent(bookEvent, context);
-				retireFinishedDvd(group);
-			}),
-		);
 	}
+	await Promise.all(pipelines);
 	eventEmitter.broadcast({ type: 'stopButtonEnable' });
 };
 

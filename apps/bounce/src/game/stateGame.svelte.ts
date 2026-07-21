@@ -1,5 +1,5 @@
 import type { GameType, ModeName, Tile, Vec2 } from './types';
-import type { BookEventOfType } from './typesBookEvent';
+import type { Bet, BookEventOfType } from './typesBookEvent';
 
 // Reactive board state the renderer draws from. The board (tiles) is set once per
 // round by the `reveal` handler; the running point total is advanced by the
@@ -59,6 +59,10 @@ export const stateGame = $state({
 	scanlines: true,
 	// Dev-only round speed multiplier (DevBar slider); 1 = normal speed.
 	devSpeed: 1,
+	// Playback bookkeeping for the dev-only replay button: the last bet played
+	// and whether a book is currently animating (set by utils.playBet).
+	lastBet: undefined as Bet | undefined,
+	betPlaying: false,
 });
 
 // Apply a reveal event's board to state without animation (used by both the
@@ -80,6 +84,22 @@ const reset = () => {
 	stateGame.discs = [{ dvdIndex: 0, spawn: null }];
 };
 
+// Skip signal for handler-paced waits: a promise that resolves when the
+// player skips mid-round. Registering via a callback list (not polling!) —
+// chained short setTimeout polls get throttled to ~1s each in
+// background/occluded pages, which froze whole rounds.
+let skipResolvers: Array<() => void> = [];
+const requestSkip = () => {
+	stateGame.skip = true;
+	for (const resolve of skipResolvers) resolve();
+	skipResolvers = [];
+};
+const untilSkip = () =>
+	new Promise<void>((resolve) => {
+		if (stateGame.skip) resolve();
+		else skipResolvers.push(resolve);
+	});
+
 // Wipe the board back to the hidden placeholder skeleton (all "?" tiles, no
 // disc) — used when the bet mode changes so the previous mode's revealed
 // board doesn't linger while the new mode's first round loads.
@@ -94,4 +114,6 @@ export const stateGameDerived = {
 	settle,
 	reset,
 	clearBoard,
+	requestSkip,
+	untilSkip,
 };
