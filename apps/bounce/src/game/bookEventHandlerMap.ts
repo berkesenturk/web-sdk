@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import { tick } from 'svelte';
 
 import { type BookEventHandlerMap } from 'utils-book';
 import { stateBet } from 'state-shared';
@@ -26,6 +27,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		// Note: stateGame.skip is cleared at bet start (stateGameDerived.reset in
 		// actor.onNewGameStart), NOT here — clearing it once the animation begins
 		// would wipe a skip the player pressed during the pre-animation delay.
+		// Flush the tile/disc remounts before broadcasting so every subscriber
+		// of the fresh board actually receives boardReset.
+		await tick();
 		await eventEmitter.broadcastAsync({ type: 'boardReset' });
 	},
 	bounce: async (bookEvent: BookEventOfType<'bounce'>) => {
@@ -44,7 +48,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			tileIndex: bookEvent.tileIndex,
 			tileKind: bookEvent.tileKind,
 			value: bookEvent.value,
-			mineImmune: bookEvent.mineImmune,
 			lethal: bookEvent.lethal,
 			splitSuppressed: bookEvent.splitSuppressed,
 			runningTotal: bookEvent.runningTotal,
@@ -57,7 +60,11 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	},
 	split: async (bookEvent: BookEventOfType<'split'>) => {
 		// Mount the children at the split point before the FX so they're visible
-		// as the pop plays; the parent disc unmounts in the same update.
+		// as the pop plays; the parent disc unmounts in the same update. The
+		// tick() flush is load-bearing: without it the children's Disc
+		// components may not be subscribed yet when their first discMove
+		// broadcasts next cycle — the move would be silently dropped and tiles
+		// would score with no disc visibly travelling there.
 		stateGame.discs = [
 			...stateGame.discs.filter((d) => d.dvdIndex !== bookEvent.parentDvdIndex),
 			...bookEvent.childDvdIndexes.map((dvdIndex) => ({
@@ -65,6 +72,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 				spawn: bookEvent.position,
 			})),
 		];
+		await tick();
 		await eventEmitter.broadcastAsync({
 			type: 'discSplit',
 			parentDvdIndex: bookEvent.parentDvdIndex,

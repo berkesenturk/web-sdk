@@ -23,7 +23,6 @@ export type EmitterEventGame =
 			tileIndex: number;
 			tileKind: TileKind;
 			value: number;
-			mineImmune: boolean;
 			lethal: boolean;
 			splitSuppressed: boolean;
 			runningTotal: number;

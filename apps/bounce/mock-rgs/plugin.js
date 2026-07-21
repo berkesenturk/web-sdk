@@ -37,8 +37,14 @@ const resolveMode = (requested) => {
 // Decompress a mode's books + weights once, then weighted-sample on demand. The
 // decompressed normal file is ~715 MB (>Node's max string length), so we keep the
 // raw Buffer and record per-line byte ranges instead of building one giant string.
+// The cache holds at most 2 modes (each buffer is several hundred MB) — the
+// oldest other mode is evicted when a new one loads.
 const loadMode = (mode) => {
 	if (modeCache.has(mode)) return modeCache.get(mode);
+	for (const key of modeCache.keys()) {
+		if (modeCache.size < 2) break;
+		modeCache.delete(key);
+	}
 	const entry = readIndex().modes.find((m) => m.name === mode);
 	const buf = zstdDecompressSync(fs.readFileSync(path.join(PUBLISH, entry.events)));
 	const ranges = [];
@@ -191,6 +197,16 @@ export function mockRgs() {
 								status: { statusCode: 'SUCCESS', statusMessage: '' },
 								balance: { amount: balance, currency: 'USD' },
 							});
+						}
+
+						// Dev nicety: pre-warm a mode's books when the selector picks it,
+						// so the first play doesn't stall on the big zstd decompression.
+						if (req.method === 'POST' && url === '/dev/warm-mode') {
+							const mode = resolveMode(new URLSearchParams((req.url ?? '').split('?')[1]).get('mode'));
+							setTimeout(() => {
+								try { loadMode(mode); } catch { /* warm-up only */ }
+							}, 0);
+							return sendJson(res, { status: { statusCode: 'SUCCESS', statusMessage: '' } });
 						}
 
 						if (req.method === 'POST' && url === '/bet/event') {

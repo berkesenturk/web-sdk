@@ -60,6 +60,8 @@
 				mineHit = true;
 			} else if (emitterEvent.tileKind === 'mythosis' && !emitterEvent.splitSuppressed) {
 				lastHit = { text: 'SPLIT', color: 0xb15cff };
+			} else if (emitterEvent.tileKind === 'dead') {
+				lastHit = { text: '0.00x', color: 0x9aa3b5 };
 			} else if (emitterEvent.value > 0) {
 				lastHit = { text: `${emitterEvent.value.toFixed(2)}x`, color: 0x6dff8a };
 			} else {

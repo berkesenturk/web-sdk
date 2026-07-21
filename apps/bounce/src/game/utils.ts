@@ -2,10 +2,14 @@ import { stateBet } from 'state-shared';
 import { createPlayBookUtils } from 'utils-book';
 
 import { eventEmitter } from './eventEmitter';
+import { stateGame } from './stateGame.svelte';
 import type { Bet, BookEvent, BookEventOfType } from './typesBookEvent';
 import { bookEventHandlerMap } from './bookEventHandlerMap';
 
 export const { playBookEvent, playBookEvents } = createPlayBookUtils({ bookEventHandlerMap });
+
+// Last played bet, kept for the dev-only replay button (DevBar).
+export let lastPlayedBet: Bet | undefined;
 
 // Which DVD a disc-level event belongs to (its "turn" owner); null for the
 // round-level events (reveal / setTotalWin / finalWin / snapshot).
@@ -29,9 +33,24 @@ const turnDvd = (bookEvent: BookEvent): number | null => {
 // within one turn stay sequential. Single-DVD rounds degenerate to the plain
 // serial playback this replaces.
 export const playBet = async (bet: Bet) => {
+	lastPlayedBet = bet;
 	stateBet.winBookEventAmount = 0;
 	const bookEvents = bet.state;
 	const context = { bookEvents };
+	// A DVD's disc leaves the board the moment its LAST event has played —
+	// otherwise a finished DVD (e.g. after an unchained corner) sits frozen at
+	// its final contact while the other DVDs keep flying.
+	const lastEventIndex = new Map<number, number>();
+	for (const [index, bookEvent] of bookEvents.entries()) {
+		const dvd = turnDvd(bookEvent);
+		if (dvd !== null) lastEventIndex.set(dvd, index);
+	}
+	const retireFinishedDvd = (group: BookEvent[]) => {
+		const last = group[group.length - 1];
+		const dvd = turnDvd(last);
+		if (dvd === null || lastEventIndex.get(dvd) !== last.index) return;
+		stateGame.discs = stateGame.discs.filter((d) => d.dvdIndex !== dvd);
+	};
 	let i = 0;
 	while (i < bookEvents.length) {
 		if (turnDvd(bookEvents[i]) === null) {
@@ -61,6 +80,7 @@ export const playBet = async (bet: Bet) => {
 		await Promise.all(
 			[...turns.values()].map(async (group) => {
 				for (const bookEvent of group) await playBookEvent(bookEvent, context);
+				retireFinishedDvd(group);
 			}),
 		);
 	}

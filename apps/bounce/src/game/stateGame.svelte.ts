@@ -57,6 +57,8 @@ export const stateGame = $state({
 	// CRT scanlines overlay on the screen (MENÜ toggle). Display preference —
 	// deliberately untouched by reset()/settle(), so it survives rounds.
 	scanlines: true,
+	// Dev-only round speed multiplier (DevBar slider); 1 = normal speed.
+	devSpeed: 1,
 });
 
 // Apply a reveal event's board to state without animation (used by both the
@@ -78,7 +80,18 @@ const reset = () => {
 	stateGame.discs = [{ dvdIndex: 0, spawn: null }];
 };
 
+// Wipe the board back to the hidden placeholder skeleton (all "?" tiles, no
+// disc) — used when the bet mode changes so the previous mode's revealed
+// board doesn't linger while the new mode's first round loads.
+const clearBoard = () => {
+	stateGame.tiles = placeholderTiles();
+	stateGame.discStart = undefined;
+	stateGame.discs = [{ dvdIndex: 0, spawn: null }];
+	stateGame.runningTotal = 0;
+};
+
 export const stateGameDerived = {
 	settle,
 	reset,
+	clearBoard,
 };

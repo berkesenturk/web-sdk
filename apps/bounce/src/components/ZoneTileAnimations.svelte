@@ -97,7 +97,7 @@
 		<Container alpha={multAlpha}>
 			<Text
 				anchor={0.5}
-				text={tile.value > 0 ? `${fmtZoneVal(tile.value)}x` : '0'}
+				text={`${fmtZoneVal(tile.value)}x`}
 				style={{
 					fontFamily: 'proxima-nova',
 					fontSize: 32,

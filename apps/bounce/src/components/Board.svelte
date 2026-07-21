@@ -23,7 +23,7 @@
 	// board reads before the disc spawns.
 	context.eventEmitter.subscribeOnMount({
 		boardReset: async () => {
-			if (!stateBet.isTurbo && !stateGame.skip) await waitForTimeout(400);
+			if (!stateBet.isTurbo && !stateGame.skip) await waitForTimeout(400 / stateGame.devSpeed);
 		},
 	});
 

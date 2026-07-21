@@ -62,15 +62,16 @@
 			// rest of the bounce FX.
 			if (stateGame.skip) return;
 			if (emitterEvent.lethal) {
-				// post-immunity mine: the DVD dies — BOOM pop + explosion
+				// mine: the DVD dies — BOOM pop + explosion
 				spawn('explosion', 'explode', emitterEvent.position);
 				spawn('boomPop', 'pop', emitterEvent.position);
-			} else if (emitterEvent.value > 0) {
-				// gem hit (incl. an immune mine hit, which pays a random value)
+			} else if (emitterEvent.tileKind === 'zone' || emitterEvent.tileKind === 'dead') {
+				// every scoring-relevant hit pops its value — dead tiles show an
+				// explicit "+0.00x" so no bounce ever reads as a silent no-op
 				spawn('multPop', 'pop', emitterEvent.position, `+${fmtZoneVal(emitterEvent.value)}x`);
 			}
-			// dead tiles, star grazes and the mythosis strike itself pay nothing;
-			// the split gets its own FX on discSplit below.
+			// the mythosis strike itself pays nothing; the split gets its own FX
+			// on discSplit below.
 		},
 		// Rules: mythosis — the parent bursts into two children at the cell.
 		discSplit: (emitterEvent) => {

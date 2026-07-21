@@ -12,6 +12,7 @@
 	import { TV_WIDEN, DESIGN_MODE } from '../game/constants';
 	import { tvTransform } from '../game/tvLayout';
 	import ModeSelector from '../components-dom/ModeSelector.svelte';
+	import DevBar from '../components-dom/DevBar.svelte';
 	import EnableGameActor from './EnableGameActor.svelte';
 	import ResumeBet from './ResumeBet.svelte';
 	import Background from './Background.svelte';
@@ -79,6 +80,10 @@
 
 {#if !DESIGN_MODE && !context.stateLayout.showLoadingScreen && stateUi.config.mode !== 'replay'}
 	<ModeSelector />
+{/if}
+
+{#if import.meta.env.DEV && !context.stateLayout.showLoadingScreen}
+	<DevBar />
 {/if}
 
 <Modals>

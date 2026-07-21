@@ -10,11 +10,9 @@ import type { PlayableTile, Vec2 } from './types';
 
 export const LOGO_COLORS = [0xe50914, 0xff6b00, 0x00d26a, 0x00bfff, 0xa259ff, 0xff2d78];
 
-export const fmtZoneVal = (value: number): string => {
-	if (value >= 100) return Math.round(value).toString();
-	if (value >= 1) return value.toFixed(1);
-	return value.toFixed(2);
-};
+// Always two decimals ("3.00x", "0.00x") — tile values are bet-multiples and
+// the HUD arithmetic must read exactly.
+export const fmtZoneVal = (value: number): string => value.toFixed(2);
 
 // Disc-centre pixel for a normalized unit-square point (0..1).
 export const toPixel = (p: Vec2): Vec2 => ({

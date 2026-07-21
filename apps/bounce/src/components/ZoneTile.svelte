@@ -36,7 +36,7 @@
 		roundEnd: async () => {
 			if (revealed) return;
 			if (!stateGame.skip && !stateBet.isTurbo) {
-				await waitForTimeout(tile.tileIndex * REVEAL_STAGGER * 3);
+				await waitForTimeout((tile.tileIndex * REVEAL_STAGGER * 3) / stateGame.devSpeed);
 			}
 			revealed = true;
 		},

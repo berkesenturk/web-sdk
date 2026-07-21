@@ -2,6 +2,7 @@
 	import { stateBet } from 'state-shared';
 
 	import { getContext } from '../game/context';
+	import { stateGameDerived } from '../game/stateGame.svelte';
 	import { tvTransform } from '../game/tvLayout';
 	import type { BetMode } from '../game/types';
 
@@ -46,7 +47,14 @@
 	const apply = () => {
 		if (locked) return;
 		press();
-		stateBet.activeBetModeKey = staged;
+		if (staged !== stateBet.activeBetModeKey) {
+			stateBet.activeBetModeKey = staged;
+			// Wipe the previous mode's board to the hidden "?" skeleton so the
+			// stale reveal doesn't linger, and ask the dev RGS to pre-warm the
+			// new mode's books (first play otherwise stalls on decompression).
+			stateGameDerived.clearBoard();
+			fetch(`/dev/warm-mode?mode=${staged}`, { method: 'POST' }).catch(() => {});
+		}
 		open = false;
 	};
 

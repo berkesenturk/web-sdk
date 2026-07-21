@@ -13,6 +13,7 @@
 		DISC_SPEED,
 		DISC_DURATION,
 		DISC_COLOR_CYCLE,
+		ZONE_THICKNESS,
 	} from '../game/constants';
 	import DiscAnimations from './DiscAnimations.svelte';
 
@@ -33,14 +34,17 @@
 	const EPS = 1e-4;
 
 	// Booked contact points sit exactly on a wall (one coord is 0 or 1; both at
-	// a corner). Push the disc centre inward by its half-extent so the plate's
-	// edge — not its middle — touches the struck wall. Impact FX (HitFx) still
-	// fire at the true contact point on the wall.
+	// a corner). Push the disc centre inward by the tile band thickness PLUS
+	// its half-extent so the plate's edge strikes the tile's inner face — the
+	// disc bounces off the tiles, never off the TV screen frame behind them.
+	// Impact FX (HitFx) still fire on the struck tile.
+	const insetW = ZONE_THICKNESS + halfW;
+	const insetH = ZONE_THICKNESS + halfH;
 	const contactPixel = (p: { x: number; y: number }) => {
 		const raw = toPixel(p);
 		return {
-			x: raw.x + (p.x <= EPS ? halfW : p.x >= 1 - EPS ? -halfW : 0),
-			y: raw.y + (p.y <= EPS ? halfH : p.y >= 1 - EPS ? -halfH : 0),
+			x: raw.x + (p.x <= EPS ? insetW : p.x >= 1 - EPS ? -insetW : 0),
+			y: raw.y + (p.y <= EPS ? insetH : p.y >= 1 - EPS ? -insetH : 0),
 		};
 	};
 
@@ -122,7 +126,8 @@
 			const dist = Math.hypot(target.x - x.current, target.y - y.current);
 			const factor = stateBet.isTurbo ? 0.35 : 1;
 			const duration =
-				Math.min(DISC_DURATION.max, Math.max(DISC_DURATION.min, dist / DISC_SPEED)) * factor;
+				(Math.min(DISC_DURATION.max, Math.max(DISC_DURATION.min, dist / DISC_SPEED)) * factor) /
+				stateGame.devSpeed;
 			const move = Promise.all([x.set(target.x, { duration }), y.set(target.y, { duration })]);
 			// Resolve as soon as EITHER the slide finishes OR a skip snaps it (above).
 			const skipped = new Promise<void>((resolve) => (onSkip = resolve));

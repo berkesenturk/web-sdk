@@ -19,6 +19,8 @@ type BookEventReveal = {
 // One wall contact: the authoritative contact point + struck tile + fate flags.
 // Geometry guarantee: consecutive contacts of one DVD are joined by lawful
 // mirror reflections, so straight lines between positions are the true path.
+// `value`/`zoneSum`/`runningTotal` are bet-multiples (runningTotal IS the
+// payout multiplier); mines are always lethal.
 type BookEventBounce = {
 	index: number;
 	type: 'bounce';
@@ -29,7 +31,6 @@ type BookEventBounce = {
 	tileIndex: number;
 	tileKind: Tile['kind'];
 	value: number;
-	mineImmune: boolean;
 	lethal: boolean;
 	splitSuppressed: boolean;
 	zoneSum: number;
