@@ -9,7 +9,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { zstdDecompressSync } from 'node:zlib';
+import { zstdDecompress } from 'node:zlib';
+import { promisify } from 'node:util';
+
+const zstdDecompressAsync = promisify(zstdDecompress);
 
 const API = 1_000_000; // constants-shared/bet API_AMOUNT_MULTIPLIER ($1 = 1_000_000)
 const DIR = import.meta.dirname;
@@ -34,42 +37,46 @@ const resolveMode = (requested) => {
 	return (hit ?? modes[0]).name; // unknown/'BASE' → first mode (normal)
 };
 
-// Decompress a mode's books + weights once, then weighted-sample on demand. The
-// decompressed normal file is ~715 MB (>Node's max string length), so we keep the
-// raw Buffer and record per-line byte ranges instead of building one giant string.
-// The cache holds at most 2 modes (each buffer is several hundred MB) — the
-// oldest other mode is evicted when a new one loads.
+// Decompress a mode's books + weights once (ASYNC — the sync variant blocks
+// Node's whole event loop for seconds), then weighted-sample on demand. The
+// decompressed normal file is ~715 MB (>Node's max string length), so we keep
+// the raw Buffer and record per-line byte ranges instead of building one giant
+// string. The cache stores PROMISES and holds at most 2 modes (each buffer is
+// several hundred MB) — the oldest other mode is evicted when a new one loads.
 const loadMode = (mode) => {
 	if (modeCache.has(mode)) return modeCache.get(mode);
 	for (const key of modeCache.keys()) {
 		if (modeCache.size < 2) break;
 		modeCache.delete(key);
 	}
-	const entry = readIndex().modes.find((m) => m.name === mode);
-	const buf = zstdDecompressSync(fs.readFileSync(path.join(PUBLISH, entry.events)));
-	const ranges = [];
-	let pos = 0, nl;
-	while ((nl = buf.indexOf(0x0a, pos)) !== -1) {
-		if (nl > pos) ranges.push([pos, nl]);
-		pos = nl + 1;
-	}
-	if (pos < buf.length) ranges.push([pos, buf.length]);
-	const cum = new Float64Array(ranges.length);
-	let total = 0;
-	const wRows = fs.readFileSync(path.join(PUBLISH, entry.weights), 'utf8').split('\n');
-	for (let i = 0; i < ranges.length; i++) {
-		total += Number(wRows[i]?.split(',')[1] ?? 0); // col: id,weight,payout
-		cum[i] = total;
-	}
-	const loaded = { buf, ranges, cum, total };
-	modeCache.set(mode, loaded);
-	return loaded;
+	const promise = (async () => {
+		const entry = readIndex().modes.find((m) => m.name === mode);
+		const buf = await zstdDecompressAsync(fs.readFileSync(path.join(PUBLISH, entry.events)));
+		const ranges = [];
+		let pos = 0, nl;
+		while ((nl = buf.indexOf(0x0a, pos)) !== -1) {
+			if (nl > pos) ranges.push([pos, nl]);
+			pos = nl + 1;
+		}
+		if (pos < buf.length) ranges.push([pos, buf.length]);
+		const cum = new Float64Array(ranges.length);
+		let total = 0;
+		const wRows = fs.readFileSync(path.join(PUBLISH, entry.weights), 'utf8').split('\n');
+		for (let i = 0; i < ranges.length; i++) {
+			total += Number(wRows[i]?.split(',')[1] ?? 0); // col: id,weight,payout
+			cum[i] = total;
+		}
+		return { buf, ranges, cum, total };
+	})();
+	promise.catch(() => modeCache.delete(mode)); // don't cache failures
+	modeCache.set(mode, promise);
+	return promise;
 };
 
 const parseBook = (m, i) => JSON.parse(m.buf.toString('utf8', m.ranges[i][0], m.ranges[i][1]));
 
-const sampleBook = (mode) => {
-	const m = loadMode(mode);
+const sampleBook = async (mode) => {
+	const m = await loadMode(mode);
 	const r = Math.random() * m.total;
 	let lo = 0, hi = m.cum.length - 1;
 	while (lo < hi) {
@@ -80,8 +87,8 @@ const sampleBook = (mode) => {
 	return parseBook(m, lo);
 };
 
-const bookByIndex = (mode, idx) => {
-	const m = loadMode(mode);
+const bookByIndex = async (mode, idx) => {
+	const m = await loadMode(mode);
 	const i = Number.isInteger(idx) && idx >= 0 && idx < m.ranges.length ? idx : 0;
 	return parseBook(m, i);
 };
@@ -174,11 +181,16 @@ export function mockRgs() {
 
 						if (req.method === 'POST' && url === '/wallet/play') {
 							const body = await readBody(req);
-							const book = sampleBook(resolveMode(body.mode));
+							const mode = resolveMode(body.mode);
+							const book = await sampleBook(mode);
 							const r = round(book, body.amount ?? API);
-							// Take the stake now; hold the win for end-round (real-RGS convention:
-							// /wallet/play settles the bet, /wallet/end-round settles the win).
-							balance = balance - r.amount;
+							// Take the stake now: the client sends the BASE amount and the RGS
+							// applies the mode's cost multiplier (buy-bonus convention). The win
+							// is held for end-round (/wallet/play settles the bet,
+							// /wallet/end-round settles the win). Book payoutMultiplier is in
+							// base-bet units (already x cost), so payout math needs no cost.
+							const cost = readIndex().modes.find((m) => m.name === mode)?.cost ?? 1;
+							balance = balance - r.amount * cost;
 							pendingPayout = r.payout;
 							server.config.logger.info(
 								`[mock-rgs] play ${r.mode} → ${r.payoutMultiplier}x (id ${book.id})`,
@@ -199,13 +211,12 @@ export function mockRgs() {
 							});
 						}
 
-						// Dev nicety: pre-warm a mode's books when the selector picks it,
-						// so the first play doesn't stall on the big zstd decompression.
+						// Dev nicety: pre-warm a mode's books when the selector picks it —
+						// responds only once the (async) decompression completes, so the
+						// client can show a LOADING state until the mode is ready.
 						if (req.method === 'POST' && url === '/dev/warm-mode') {
 							const mode = resolveMode(new URLSearchParams((req.url ?? '').split('?')[1]).get('mode'));
-							setTimeout(() => {
-								try { loadMode(mode); } catch { /* warm-up only */ }
-							}, 0);
+							await loadMode(mode);
 							return sendJson(res, { status: { statusCode: 'SUCCESS', statusMessage: '' } });
 						}
 
@@ -221,7 +232,7 @@ export function mockRgs() {
 						//      [0]''  [1]bet [2]replay [3]game [4]version [5]mode [6]event
 						if (req.method === 'GET' && url.startsWith('/bet/replay/')) {
 							const [, , , , , mode, event] = url.split('/');
-							const book = bookByIndex(resolveMode(mode), Number(event));
+							const book = await bookByIndex(resolveMode(mode), Number(event));
 							return sendJson(res, round(book, 1 * API));
 						}
 					} catch (error) {

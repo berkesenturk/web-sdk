@@ -2,7 +2,7 @@
 	import { stateBet } from 'state-shared';
 
 	import { getContext } from '../game/context';
-	import { stateGameDerived } from '../game/stateGame.svelte';
+	import { stateGame, stateGameDerived } from '../game/stateGame.svelte';
 	import { tvTransform } from '../game/tvLayout';
 	import type { BetMode } from '../game/types';
 
@@ -15,10 +15,10 @@
 	const context = getContext();
 
 	const MODES: { key: BetMode; label: string }[] = [
-		{ key: 'normal', label: 'NORMAL' },
-		{ key: 'corner_boost', label: 'CORNER BOOST' },
-		{ key: 'mythosis', label: 'MYTHOSIS' },
-		{ key: 'mythosis_plus', label: 'MYTHOSIS+' },
+		{ key: 'normal', label: 'NORMAL ×1' },
+		{ key: 'corner_boost', label: 'CORNER BOOST ×5' },
+		{ key: 'mythosis', label: 'MYTHOSIS ×25' },
+		{ key: 'mythosis_plus', label: 'MYTHOSIS+ ×100' },
 	];
 
 	let open = $state(false);
@@ -44,18 +44,25 @@
 		press();
 		open = false;
 	};
-	const apply = () => {
+	const apply = async () => {
 		if (locked) return;
 		press();
-		if (staged !== stateBet.activeBetModeKey) {
-			stateBet.activeBetModeKey = staged;
-			// Wipe the previous mode's board to the hidden "?" skeleton so the
-			// stale reveal doesn't linger, and ask the dev RGS to pre-warm the
-			// new mode's books (first play otherwise stalls on decompression).
-			stateGameDerived.clearBoard();
-			fetch(`/dev/warm-mode?mode=${staged}`, { method: 'POST' }).catch(() => {});
-		}
+		const changed = staged !== stateBet.activeBetModeKey;
 		open = false;
+		if (!changed) return;
+		stateBet.activeBetModeKey = staged;
+		// Wipe the previous mode's board to the hidden "?" skeleton and show a
+		// LOADING state until the dev RGS has this mode's books decompressed
+		// and ready (the warm endpoint responds only when loading completes).
+		stateGameDerived.clearBoard();
+		stateGame.modeLoading = true;
+		try {
+			await fetch(`/dev/warm-mode?mode=${staged}`, { method: 'POST' });
+		} catch {
+			// dev-only nicety; a failed warm just means a slower first play
+		} finally {
+			stateGame.modeLoading = false;
+		}
 	};
 
 	// Sign tracks the cabinet: spec px are treated as rig px and scaled by the

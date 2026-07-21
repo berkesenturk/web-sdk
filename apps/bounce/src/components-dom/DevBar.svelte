@@ -18,6 +18,9 @@
 
 <div class="dev-bar">
 	<span class="tag">DEV</span>
+	<span class="ev">
+		{stateGame.betPlaying ? `event ${stateGame.devEventIndex}/${Math.max(0, stateGame.devEventCount - 1)}` : '—'}
+	</span>
 	<button onclick={replay} disabled={!canReplay}>⟲ replay round</button>
 	<label>
 		speed ×{stateGame.devSpeed.toFixed(2)}
@@ -51,6 +54,10 @@
 	.tag {
 		color: #ffd94d;
 		letter-spacing: 2px;
+	}
+	.ev {
+		min-width: 92px;
+		color: #8fe3a8;
 	}
 	button {
 		background: #1d2940;

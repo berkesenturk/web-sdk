@@ -16,7 +16,9 @@ export const initBetMode = () => {
 			{
 				mode,
 				costMultiplier: config.betModes[mode].cost,
-				type: 'default',
+				// 'activate' engages the SDK's betCostMultiplier(): the BET label
+				// shows betAmount x cost and the balance clamp uses the real stake.
+				type: 'activate',
 				parent: '',
 				children: '',
 				maxWin: config.betModes[mode].max_win,

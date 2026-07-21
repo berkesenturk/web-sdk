@@ -89,8 +89,8 @@ export const CONTROL_BAND_RATIO = 0.08;
 
 // Disc travel speed in board pixels/ms, and the per-bounce duration clamp. The
 // disc moves at a constant DVD speed between booked contact points; turbo scales
-// the duration down. min is only a teleport guard: corner-graze hops are tiny
-// (~30 board px after edge insets) and must stay QUICK — a bigger floor
-// stretches them into a visible crawl (~6x under speed at the old 240).
+// the duration down. min is only a teleport guard; max caps the LONG glides
+// (full-diagonal corner approaches would otherwise take ~1.6s and read as
+// sluggish — capping at 1s makes them dash).
 export const DISC_SPEED = 0.8;
-export const DISC_DURATION = { min: 40, max: 1800 };
+export const DISC_DURATION = { min: 40, max: 1000 };

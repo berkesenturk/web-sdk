@@ -57,12 +57,19 @@ export const stateGame = $state({
 	// CRT scanlines overlay on the screen (MENÜ toggle). Display preference —
 	// deliberately untouched by reset()/settle(), so it survives rounds.
 	scanlines: true,
+	// True while a newly selected mode's books are being prepared (mode
+	// selector -> dev RGS warm-up); the HUD shows a LOADING state.
+	modeLoading: false,
 	// Dev-only round speed multiplier (DevBar slider); 1 = normal speed.
 	devSpeed: 1,
 	// Playback bookkeeping for the dev-only replay button: the last bet played
 	// and whether a book is currently animating (set by utils.playBet).
 	lastBet: undefined as Bet | undefined,
 	betPlaying: false,
+	// Dev-only progress readout: highest book-event index dispatched so far
+	// this round, and the round's event count (DevBar shows "event N/M").
+	devEventIndex: 0,
+	devEventCount: 0,
 });
 
 // Apply a reveal event's board to state without animation (used by both the

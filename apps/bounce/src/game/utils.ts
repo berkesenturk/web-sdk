@@ -46,6 +46,13 @@ const playBetInner = async (bet: Bet) => {
 	stateBet.winBookEventAmount = 0;
 	const bookEvents = bet.state;
 	const context = { bookEvents };
+	stateGame.devEventCount = bookEvents.length;
+	stateGame.devEventIndex = 0;
+	// Dev progress readout: highest event index dispatched (pipelines run
+	// concurrently, so ratchet instead of assigning blindly).
+	const markEvent = (bookEvent: BookEvent) => {
+		if (bookEvent.index > stateGame.devEventIndex) stateGame.devEventIndex = bookEvent.index;
+	};
 
 	// Per-DVD event queues in stream order.
 	const queues = new Map<number, BookEvent[]>();
@@ -71,6 +78,7 @@ const playBetInner = async (bet: Bet) => {
 	const runDvd = async (dvd: number) => {
 		await gates.get(dvd);
 		for (const bookEvent of queues.get(dvd) ?? []) {
+			markEvent(bookEvent);
 			await playBookEvent(bookEvent, context);
 			if (bookEvent.type === 'split') {
 				for (const child of bookEvent.childDvdIndexes) gateResolvers.get(child)?.();
@@ -87,6 +95,7 @@ const playBetInner = async (bet: Bet) => {
 		const dvd = turnDvd(bookEvent);
 		if (dvd === null) {
 			await Promise.all(pipelines); // barrier before round-level events
+			markEvent(bookEvent);
 			await playBookEvent(bookEvent, context);
 		} else if (!started.has(dvd)) {
 			started.add(dvd);
