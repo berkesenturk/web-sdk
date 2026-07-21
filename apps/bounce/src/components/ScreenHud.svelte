@@ -13,11 +13,8 @@
 	// the round's money win (EARNED, the hero, screen centre, revealed at round
 	// end) over a bottom row pairing the running multiplier (TOTAL X, left) with
 	// the last struck tile (LAST HIT, right).
-	// TOTAL X / LAST HIT show the BOOKED values (event zoneValue / runningTotal,
-	// always two decimals), not the visual tile's label — books carry 10 zones
-	// per wall folded into 8 visual tiles, so only the booked numbers keep
-	// TOTAL X = previous TOTAL X + LAST HIT arithmetically true on every bounce.
-	// (Tile flash/pop FX still match by position — see HitFx.) EARNED converts
+	// TOTAL X / LAST HIT show the BOOKED values (event value / runningTotal =
+	// zoneSum x cornerProduct, always two decimals). EARNED converts
 	// winBookEventAmount exactly like the SDK's LabelWin, so it always agrees
 	// with the WIN meter.
 	const context = getContext();
@@ -58,13 +55,13 @@
 			earned = undefined;
 		},
 		discBounce: (emitterEvent) => {
-			if (emitterEvent.isDead) {
+			if (emitterEvent.lethal) {
 				lastHit = { text: 'MINE', color: 0xff5a5a };
 				mineHit = true;
-			} else if (emitterEvent.isGlow) {
+			} else if (emitterEvent.tileKind === 'mythosis' && !emitterEvent.splitSuppressed) {
 				lastHit = { text: 'SPLIT', color: 0xb15cff };
-			} else if (emitterEvent.zoneValue > 0) {
-				lastHit = { text: `${emitterEvent.zoneValue.toFixed(2)}x`, color: 0x6dff8a };
+			} else if (emitterEvent.value > 0) {
+				lastHit = { text: `${emitterEvent.value.toFixed(2)}x`, color: 0x6dff8a };
 			} else {
 				return;
 			}

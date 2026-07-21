@@ -12,14 +12,20 @@ import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEv
 // reactive state and broadcast render commands (emitter events); the components
 // own the actual animation. `await broadcastAsync(...)` paces playback to the
 // animation it triggers.
+//
+// Multi-DVD rounds run cycle-parallel (utils.playBet): handlers of different
+// DVDs in one round-robin cycle run CONCURRENTLY, so runningTotal only ever
+// ratchets upward (per-event values within a cycle may arrive out of order).
+const advanceRunningTotal = (runningTotal: number) => {
+	if (runningTotal > stateGame.runningTotal) stateGame.runningTotal = runningTotal;
+};
+
 export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContext> = {
 	reveal: async (bookEvent: BookEventOfType<'reveal'>) => {
 		stateGameDerived.settle(bookEvent);
 		// Note: stateGame.skip is cleared at bet start (stateGameDerived.reset in
 		// actor.onNewGameStart), NOT here — clearing it once the animation begins
 		// would wipe a skip the player pressed during the pre-animation delay.
-		// Awaited so the tiles' reveal wave (paced by Board) finishes before the
-		// first bounce launches.
 		await eventEmitter.broadcastAsync({ type: 'boardReset' });
 	},
 	bounce: async (bookEvent: BookEventOfType<'bounce'>) => {
@@ -30,27 +36,60 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			dvdIndex: bookEvent.dvdIndex,
 			position: bookEvent.position,
 		});
-		stateGame.runningTotal = bookEvent.runningTotal;
+		advanceRunningTotal(bookEvent.runningTotal);
 		await eventEmitter.broadcastAsync({
 			type: 'discBounce',
 			dvdIndex: bookEvent.dvdIndex,
 			position: bookEvent.position,
-			zoneIndex: bookEvent.zoneIndex,
-			zoneValue: bookEvent.zoneValue,
-			isGlow: bookEvent.isGlow,
-			isDead: bookEvent.isDead,
-			isExtra: bookEvent.isExtra,
+			tileIndex: bookEvent.tileIndex,
+			tileKind: bookEvent.tileKind,
+			value: bookEvent.value,
+			mineImmune: bookEvent.mineImmune,
+			lethal: bookEvent.lethal,
+			splitSuppressed: bookEvent.splitSuppressed,
 			runningTotal: bookEvent.runningTotal,
+		});
+		// A post-immunity mine destroys the DVD: unmount its disc (the explosion
+		// FX spawned by discBounce plays on independently in HitFx).
+		if (bookEvent.lethal) {
+			stateGame.discs = stateGame.discs.filter((d) => d.dvdIndex !== bookEvent.dvdIndex);
+		}
+	},
+	split: async (bookEvent: BookEventOfType<'split'>) => {
+		// Mount the children at the split point before the FX so they're visible
+		// as the pop plays; the parent disc unmounts in the same update.
+		stateGame.discs = [
+			...stateGame.discs.filter((d) => d.dvdIndex !== bookEvent.parentDvdIndex),
+			...bookEvent.childDvdIndexes.map((dvdIndex) => ({
+				dvdIndex,
+				spawn: bookEvent.position,
+			})),
+		];
+		await eventEmitter.broadcastAsync({
+			type: 'discSplit',
+			parentDvdIndex: bookEvent.parentDvdIndex,
+			position: bookEvent.position,
+			childDvdIndexes: bookEvent.childDvdIndexes,
+			remainingBounces: bookEvent.remainingBounces,
 		});
 	},
 	corner: async (bookEvent: BookEventOfType<'corner'>) => {
-		stateGame.runningTotal = bookEvent.runningTotal;
+		// The books guarantee the disc's reflected path terminates exactly on the
+		// booked corner (BOOK_CONTRACT geometry guarantees), so the disc really
+		// travels INTO the corner before the multiplier FX fire there.
+		await eventEmitter.broadcastAsync({
+			type: 'discMove',
+			dvdIndex: bookEvent.dvdIndex,
+			position: bookEvent.position,
+		});
+		advanceRunningTotal(bookEvent.runningTotal);
 		await eventEmitter.broadcastAsync({
 			type: 'discCorner',
 			dvdIndex: bookEvent.dvdIndex,
+			position: bookEvent.position,
+			tileIndex: bookEvent.tileIndex,
 			cornerMultiplier: bookEvent.cornerMultiplier,
-			glowBoost: bookEvent.glowBoost,
-			effectiveMultiplier: bookEvent.effectiveMultiplier,
+			cornerProduct: bookEvent.cornerProduct,
 			runningTotal: bookEvent.runningTotal,
 		});
 	},

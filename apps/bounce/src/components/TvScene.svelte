@@ -17,7 +17,6 @@
 	import ScreenHud from './ScreenHud.svelte';
 	import Board from './Board.svelte';
 	import Disc from './Disc.svelte';
-	import CloneDiscs from './CloneDiscs.svelte';
 	import HitFx from './HitFx.svelte';
 
 	const context = getContext();
@@ -49,7 +48,9 @@
 		};
 	});
 
-	const discs = $derived(Array.from({ length: stateGame.dvdCount }, (_value, index) => index));
+	// Live DVDs: dvd 0 at round start, split children as the round spawns them
+	// (the split handler mounts/unmounts entries in stateGame.discs).
+	const discs = $derived(stateGame.discs);
 
 	// Clip board content (zone flashes, discs) to the screen cutout.
 	const drawScreenMask: GraphicsProps['draw'] = (g) => {
@@ -82,10 +83,9 @@
 	<Board />
 	<!-- readouts sit UNDER the disc; scanlines over everything -->
 	<ScreenHud />
-	{#each discs as dvdIndex (dvdIndex)}
-		<Disc {dvdIndex} />
+	{#each discs as disc (disc.dvdIndex)}
+		<Disc dvdIndex={disc.dvdIndex} spawn={disc.spawn} />
 	{/each}
-	<CloneDiscs />
 	<HitFx />
 	{#if stateGame.scanlines}
 		<Graphics draw={drawScanlines} />

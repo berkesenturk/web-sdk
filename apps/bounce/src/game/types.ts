@@ -10,22 +10,29 @@ export type ModeName = BetMode;
 export type GameType = 'basegame';
 
 export type Wall = 'top' | 'bottom' | 'left' | 'right';
-export type DvdMode = 'independent' | 'sequential';
-
-// Cosmetic mode from the wall-sign selector (ModeSelector). Purely visual:
-// gameplay always plays the booked `normal` mode regardless of this value.
-export type VisualMode = 'normal' | 'corner_rush' | 'mythosis' | 'mythosis_plus';
 
 // Board-normalized (0..1) coordinate, as stored in the book.
 export type Vec2 = { x: number; y: number };
 
-// One of the 40 wall zones drawn by the `reveal` event.
-export type Zone = {
-	zoneIndex: number;
+// The 36 board tiles drawn by the `reveal` event (BOOK_CONTRACT.md "Board").
+// Playable tiles sit on a wall band; the 4 star tiles are the corners
+// (indices 0/9/18/27) and own the adjacent wall end-strips.
+export type TileKind = 'zone' | 'dead' | 'mine' | 'mythosis' | 'star';
+
+export type PlayableTile = {
+	tileIndex: number;
+	kind: Exclude<TileKind, 'star'>;
 	wall: Wall;
 	start: number;
 	end: number;
 	value: number;
-	isGlow: boolean;
-	isDead: boolean;
 };
+
+export type StarTile = {
+	tileIndex: number;
+	kind: 'star';
+	corner: 'TL' | 'TR' | 'BL' | 'BR';
+	position: { x: 0 | 1; y: 0 | 1 };
+};
+
+export type Tile = PlayableTile | StarTile;

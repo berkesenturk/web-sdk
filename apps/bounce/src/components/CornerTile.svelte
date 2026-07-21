@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SpineProvider, Rectangle } from 'pixi-svelte';
+	import { stateBet } from 'state-shared';
 
-	import { stateGame } from '../game/stateGame.svelte';
 	import { BOARD_SIZES, ZONE_THICKNESS, TILE_SOURCE_SIZE } from '../game/constants';
 	import CornerTileAnimations from './CornerTileAnimations.svelte';
 
@@ -14,13 +14,13 @@
 	const x = corner % 2 === 0 ? t / 2 : BOARD_SIZES.width - t / 2;
 	const y = corner < 2 ? t / 2 : BOARD_SIZES.height - t / 2;
 
-	// CORNER RUSH visual mode: the corners pulse (scale 1→1.1→1 + a white wash
+	// CORNER BOOST mode: the corners pulse (scale 1→1.1→1 + a white wash
 	// standing in for brightness 1→1.45→1 — pixi-svelte has no filter prop),
 	// 0.9s ease-in-out infinite. `wave` runs 0→1→0 per period via cosine.
 	const PULSE_MS = 900;
 	let wave = $state(0);
 	$effect(() => {
-		if (stateGame.visualMode !== 'corner_rush') {
+		if (stateBet.activeBetModeKey !== 'corner_boost') {
 			wave = 0;
 			return;
 		}
@@ -38,7 +38,7 @@
 </script>
 
 <SpineProvider key="cornerTile" {x} {y} scale={pulseScale}>
-	<CornerTileAnimations />
+	<CornerTileAnimations {corner} />
 </SpineProvider>
 {#if wave > 0}
 	<Rectangle

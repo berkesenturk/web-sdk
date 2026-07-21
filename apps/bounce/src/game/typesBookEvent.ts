@@ -1,6 +1,6 @@
 import type { BetType } from 'rgs-requests';
 
-import type { Zone, Vec2, ModeName, DvdMode } from './types';
+import type { Tile, Vec2, ModeName } from './types';
 
 // Field-for-field mirror of BOOK_CONTRACT.md and the math-sdk emitters
 // (games/bounce/game_events.py). Amounts on setTotalWin/finalWin are integer
@@ -11,13 +11,14 @@ type BookEventReveal = {
 	index: number;
 	type: 'reveal';
 	mode: ModeName;
-	dvdCount: number;
-	dvdMode: DvdMode;
-	zones: Zone[];
-	discStart?: { x: number; y: number; direction: number };
+	maxDvds: number;
+	tiles: Tile[];
+	discStart: { x: number; y: number; direction: number };
 };
 
-// One wall hit: the authoritative contact point + struck zone + points so far.
+// One wall contact: the authoritative contact point + struck tile + fate flags.
+// Geometry guarantee: consecutive contacts of one DVD are joined by lawful
+// mirror reflections, so straight lines between positions are the true path.
 type BookEventBounce = {
 	index: number;
 	type: 'bounce';
@@ -25,27 +26,45 @@ type BookEventBounce = {
 	round: number;
 	bounceIndex: number;
 	position: Vec2;
-	zoneIndex: number;
-	zoneValue: number;
-	isGlow: boolean;
-	isDead: boolean;
-	isExtra: boolean;
+	tileIndex: number;
+	tileKind: Tile['kind'];
+	value: number;
+	mineImmune: boolean;
+	lethal: boolean;
+	splitSuppressed: boolean;
+	zoneSum: number;
 	runningTotal: number;
 };
 
-// End-of-round corner hit: multiplies the running point total (boosted by glow).
+// Mythosis: the parent DVD (whose bounce on the mythosis tile immediately
+// precedes this) is destroyed; two children spawn at the contact point.
+type BookEventSplit = {
+	index: number;
+	type: 'split';
+	parentDvdIndex: number;
+	round: number;
+	tileIndex: number;
+	position: Vec2;
+	childDvdIndexes: number[];
+	remainingBounces: number;
+};
+
+// Corner strike: the preceding same-DVD bounce's reflected ray terminates
+// exactly at `position` ({x: 0|1, y: 0|1}) — the disc really travels there.
 type BookEventCorner = {
 	index: number;
 	type: 'corner';
 	dvdIndex: number;
 	round: number;
+	tileIndex: number;
+	position: { x: number; y: number };
 	cornerMultiplier: number;
-	glowBoost: number;
-	effectiveMultiplier: number;
+	cornerProduct: number;
+	zoneSum: number;
 	runningTotal: number;
 };
 
-// Extra round on the same running total.
+// Extra round for the corner-striking DVD on the same running total.
 type BookEventChain = {
 	index: number;
 	type: 'chain';
@@ -54,7 +73,7 @@ type BookEventChain = {
 	toRound: number;
 };
 
-// Running displayed win (cents).
+// Resolved win (cents), once after all DVDs finish.
 type BookEventSetTotalWin = {
 	index: number;
 	type: 'setTotalWin';
@@ -80,6 +99,7 @@ type BookEventCreateBonusSnapshot = {
 export type BookEvent =
 	| BookEventReveal
 	| BookEventBounce
+	| BookEventSplit
 	| BookEventCorner
 	| BookEventChain
 	| BookEventSetTotalWin

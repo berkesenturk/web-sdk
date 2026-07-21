@@ -14,7 +14,7 @@ export default {
 	betModes: {
 		normal: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 50 },
 		corner_boost: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 100 },
-		glow_zone: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 300 },
-		bounce_roulette: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 500 },
+		mythosis: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 300 },
+		mythosis_plus: { cost: 1.0, feature: true, buyBonus: false, rtp: 0.965, max_win: 500 },
 	},
 };

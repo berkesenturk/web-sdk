@@ -4,22 +4,22 @@
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { fmtZoneVal, contactWallFraction } from '../game/boardGeometry';
-	import type { Zone } from '../game/types';
+	import { fmtZoneVal } from '../game/boardGeometry';
+	import type { PlayableTile } from '../game/types';
 
-	// Imperative animation control for one zone tile, TvAnimations-style:
+	// Imperative animation control for one playable tile, TvAnimations-style:
 	// track 0 holds the base pose, track 1 plays the one-shot hit and mixes
 	// back out to the held base. The parent remounts this component whenever
 	// the tile flips ({#key} on revealed/rig), so the phase is fixed at mount:
 	// hidden = the gem rig's "?" hold; revealed = the real face, with the hit
 	// flash layered on when the flip was caused by a strike (byHit).
 	let {
-		zone,
+		tile,
 		look,
 		revealed,
 		byHit,
 	}: {
-		zone: Zone;
+		tile: PlayableTile;
 		look: 'gem' | 'mine' | 'mitosis';
 		revealed: boolean;
 		byHit: boolean;
@@ -31,7 +31,7 @@
 	const hitAnimation = kind === 'mitosis' ? 'split' : 'hit';
 
 	// The gem rig (which also hosts the hidden "?" face) bakes a "0.25x" label
-	// that can't show real zone values: drop the attachment for good (the anims
+	// that can't show real tile values: drop the attachment for good (the anims
 	// only key slot rgba, never attachments) and render live text in its place
 	// once the gem is revealed. The text follows the mult bone via SpineSlot;
 	// the slot's animated alpha (reveal fade-in, hit flash) is mirrored per
@@ -50,13 +50,13 @@
 	// Rules: value colors by tier — green 0–1x, cyan 1–5x, gold 5–15x,
 	// red/pink 15x+; dead tiles (value 0) show a gray "0".
 	const tierFill =
-		zone.value <= 0
+		tile.value <= 0
 			? 0x9aa3b5
-			: zone.value < 1
+			: tile.value < 1
 				? 0x7dff9c
-				: zone.value < 5
+				: tile.value < 5
 					? 0x5ad7ff
-					: zone.value < 15
+					: tile.value < 15
 						? 0xffd94d
 						: 0xff5a7a;
 
@@ -77,17 +77,15 @@
 		}
 	});
 
-	// Repeat strikes on an already-revealed tile flash again. Matched by the
-	// disc's contact POSITION, not zoneIndex — 10 booked zones fold into 8
-	// visual tiles per wall, so only the tile the disc is over reacts. (The
-	// flip's own flash plays from onMount; a freshly remounted tile subscribes
-	// after that broadcast finishes, so the revealing hit never double-fires.)
+	// Repeat strikes on an already-revealed tile flash again, matched by the
+	// booked tileIndex. (The flip's own flash plays from onMount; a freshly
+	// remounted tile subscribes after that broadcast finishes, so the revealing
+	// hit never double-fires.)
 	context.eventEmitter.subscribeOnMount({
 		discBounce: (emitterEvent) => {
 			// A mid-round SPIN (skip) cuts to the result — don't flash the rest.
 			if (kind === 'hidden' || stateGame.skip) return;
-			const c = contactWallFraction(emitterEvent.position);
-			if (!c || c.wall !== zone.wall || c.fraction < zone.start || c.fraction >= zone.end) return;
+			if (emitterEvent.tileIndex !== tile.tileIndex) return;
 			spine.state.setAnimation(1, hitAnimation, false);
 			spine.state.addEmptyAnimation(1, 0.2, 0);
 		},
@@ -99,7 +97,7 @@
 		<Container alpha={multAlpha}>
 			<Text
 				anchor={0.5}
-				text={zone.value > 0 ? `${fmtZoneVal(zone.value)}x` : '0'}
+				text={tile.value > 0 ? `${fmtZoneVal(tile.value)}x` : '0'}
 				style={{
 					fontFamily: 'proxima-nova',
 					fontSize: 32,

@@ -6,6 +6,7 @@
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
 	import { toPixel } from '../game/boardGeometry';
+	import type { Vec2 } from '../game/types';
 	import {
 		DISC_SIZES,
 		DISC_PLATE_NATIVE,
@@ -15,11 +16,13 @@
 	} from '../game/constants';
 	import DiscAnimations from './DiscAnimations.svelte';
 
-	// One disc (DVD logo, spine rig). It only renders/animates when it receives a
-	// discMove for its own dvdIndex; motion between booked contact points is
-	// straight-line constant speed (the true DVD path), per BOOK_CONTRACT.md. The
-	// awaited move paces the book handler, which broadcasts the impact after.
-	let { dvdIndex }: { dvdIndex: number } = $props();
+	// One DVD (logo, spine rig). It only animates on discMove events for its own
+	// dvdIndex; motion between booked contact points is straight-line constant
+	// speed (the true DVD path — BOOK_CONTRACT geometry guarantees). dvdIndex 0
+	// spawns at the reveal's discStart on boardReset; split children mount
+	// mid-round with the split contact point as `spawn`. Concurrent DVDs each
+	// run their own move promise (cycle-parallel playback in utils.playBet).
+	let { dvdIndex, spawn }: { dvdIndex: number; spawn: Vec2 | null } = $props();
 	const context = getContext();
 
 	// Render the plate (native DISC_PLATE_NATIVE.width) at DISC_SIZES.width.
@@ -29,9 +32,24 @@
 	const halfH = DISC_SIZES.height / 2;
 	const EPS = 1e-4;
 
-	let visible = $state(false);
-	const x = new Tween(0, { duration: 0 });
-	const y = new Tween(0, { duration: 0 });
+	// Booked contact points sit exactly on a wall (one coord is 0 or 1; both at
+	// a corner). Push the disc centre inward by its half-extent so the plate's
+	// edge — not its middle — touches the struck wall. Impact FX (HitFx) still
+	// fire at the true contact point on the wall.
+	const contactPixel = (p: { x: number; y: number }) => {
+		const raw = toPixel(p);
+		return {
+			x: raw.x + (p.x <= EPS ? halfW : p.x >= 1 - EPS ? -halfW : 0),
+			y: raw.y + (p.y <= EPS ? halfH : p.y >= 1 - EPS ? -halfH : 0),
+		};
+	};
+
+	// Split children spawn visible at their split point; disc 0 waits for
+	// boardReset (its booked interior start).
+	const spawnPixel = spawn ? contactPixel(spawn) : null;
+	let visible = $state(spawnPixel !== null);
+	const x = new Tween(spawnPixel?.x ?? 0, { duration: 0 });
+	const y = new Tween(spawnPixel?.y ?? 0, { duration: 0 });
 
 	// Phosphor glow trailing the disc. Its colour mirrors the plate tint via a
 	// PARALLEL counter fed by the same contact events (the rig's own cycle in
@@ -70,23 +88,11 @@
 	const placeAt = (px: number, py: number) =>
 		Promise.all([x.set(px, { duration: 0 }), y.set(py, { duration: 0 })]);
 
-	// Booked contact points sit exactly on a wall (one coord is 0 or 1). Push the
-	// disc centre inward by its half-extent so the plate's edge — not its middle —
-	// touches the struck wall. Impact FX (HitFx) still fire at the true contact
-	// point on the wall, so the edge meets the wall and the burst lands there.
-	const contactPixel = (p: { x: number; y: number }) => {
-		const raw = toPixel(p);
-		return {
-			x: raw.x + (p.x <= EPS ? halfW : p.x >= 1 - EPS ? -halfW : 0),
-			y: raw.y + (p.y <= EPS ? halfH : p.y >= 1 - EPS ? -halfH : 0),
-		};
-	};
-
 	const reset = () => {
 		visible = false;
 		colorIndex = 0;
-		// Disc 0 has a booked (interior) start; later discs (sequential roulette)
-		// appear on their first bounce.
+		// Disc 0 has a booked (interior) start; children never see boardReset
+		// (they mount mid-round and unmount at settle).
 		if (dvdIndex === 0 && stateGame.discStart) {
 			const p = toPixel(stateGame.discStart);
 			placeAt(p.x, p.y);

@@ -5,24 +5,17 @@
 // consumer and may refine the visual band, but the coordinate mapping
 // ([0,1] -> [0,BOARD_SIZES]) is fixed here.
 
-// 40 zones, 10 per wall (top/bottom/left/right), per BOOK_CONTRACT.md.
-export const ZONES_PER_WALL = 10;
-export const ZONE_COUNT = 40;
+// 36 tiles per BOOK_CONTRACT.md: each wall is 10 uniform 0.1 bins — a corner
+// (star) square at each end + 8 playable tiles between them.
+export const TILE_COUNT = 36;
 
-// Wall tiles shown per edge (the design grid is 2 corners + this). Books carry
-// ZONES_PER_WALL zones per wall; the extra ones are folded into these visually
-// (see boardGeometry.toVisualZones). Hit feedback matches by contact position.
-export const VISUAL_TILES_PER_WALL = 8;
-
-// Visual thickness of the wall zone band, in board pixels. Every zone tile is a
+// Visual thickness of the wall tile band, in board pixels. Every tile is a
 // perfect ZONE_THICKNESS square (see BOARD_SIZES).
 export const ZONE_THICKNESS = 76;
 
-// The play-field is a SQUARE with a 10-cell edge: 2 corner tiles + an 8-cell
-// wall band per edge (design decision — the books still carry 10 zones per
-// wall, which render squeezed into the 8-cell span until the math moves to 8).
-// The book reflects the disc in the unit square [0,1]^2, so a square play area
-// also keeps the bounce angles true.
+// The play-field is a SQUARE with a 10-cell edge (2 corners + 8 tiles). The
+// book reflects the disc in the unit square [0,1]^2 mapped onto the FULL board,
+// so the 0.1 bins land exactly on the 10-cell grid and bounce angles stay true.
 export const BOARD_SIZES = { width: 10 * ZONE_THICKNESS, height: 10 * ZONE_THICKNESS };
 
 // Non-uniform widen factor for the TV cabinet. The cabinet is ONE sprite, so
@@ -56,7 +49,7 @@ export const TILE_SOURCE_SIZE = 100;
 // ~200px ring) drawn in board pixels at the contact point.
 export const POP_SCALE = 1.5;
 
-// Round-intro reveal wave: gem tiles flip question->gem staggered by zoneIndex;
+// Round-intro reveal wave: gem tiles flip question->gem staggered by tileIndex;
 // the reveal book event awaits the whole wave (stagger span + the 0.63s reveal
 // clip) before the first bounce launches. Turbo skips both.
 export const REVEAL_STAGGER = 12;

@@ -3,14 +3,14 @@
 
 	import { getContext } from '../game/context';
 	import { stateGame } from '../game/stateGame.svelte';
-	import { toPixel, fmtZoneVal, hitVisualZone, isVisualMitosis } from '../game/boardGeometry';
+	import { toPixel, fmtZoneVal } from '../game/boardGeometry';
 	import { BOARD_SIZES, POP_SCALE } from '../game/constants';
 	import type { Vec2 } from '../game/types';
 	import PopAnimation from './PopAnimation.svelte';
 
-	// One-shot FX layer above the discs: each qualifying bounce spawns short
+	// One-shot FX layer above the discs: each qualifying event spawns short
 	// spine clips at the booked contact point and unmounts them on complete.
-	// Fire-and-forget — never extends the awaited bounce.
+	// Fire-and-forget — never extends the awaited event.
 	type Pop = {
 		id: number;
 		key: string;
@@ -53,48 +53,40 @@
 		pops = pops.filter((pop) => pop.id !== id);
 	};
 
-	// Where each disc last stopped, so the end-of-round corner popup (the
-	// corner book event carries no position) lands where the player is looking.
-	const lastMove = new Map<number, Vec2>();
-
 	context.eventEmitter.subscribeOnMount({
 		boardReset: () => {
 			pops = [];
-			lastMove.clear();
-		},
-		discMove: (emitterEvent) => {
-			lastMove.set(emitterEvent.dvdIndex, emitterEvent.position);
-		},
-		// Rules: the corner multiplier shows as a popup when a corner is hit.
-		discCorner: (emitterEvent) => {
-			if (stateGame.skip) return;
-			const at = lastMove.get(emitterEvent.dvdIndex) ?? { x: 0.5, y: 0.5 };
-			spawn('multPop', 'pop', at, `×${fmtZoneVal(emitterEvent.effectiveMultiplier)}`);
-		},
-		// Rules: a corner hit can chain an extra DVD round — announce it.
-		discChain: () => {
-			if (stateGame.skip) return;
-			spawn('multPop', 'pop', { x: 0.5, y: 0.35 }, 'CHAIN!');
 		},
 		discBounce: (emitterEvent) => {
 			// A mid-round SPIN (skip) cuts straight to the result — don't spawn the
 			// rest of the bounce FX.
 			if (stateGame.skip) return;
-			// Match the FX to the tile the disc is actually OVER (by contact
-			// position), so the pop kind/value agrees with the tile that flashes.
-			const hit = hitVisualZone(stateGame.zones, emitterEvent.position);
-			if (!hit) return;
-			if (hit.isDead) {
-				// mine: the tile's hit anim is joined by the BOOM pop + explosion
+			if (emitterEvent.lethal) {
+				// post-immunity mine: the DVD dies — BOOM pop + explosion
 				spawn('explosion', 'explode', emitterEvent.position);
 				spawn('boomPop', 'pop', emitterEvent.position);
-			} else if (hit.isGlow || isVisualMitosis(hit, stateGame.visualMode)) {
-				// mitosis cell split hands out its ×2 coupon (real or visual-mode dress-up)
-				spawn('mitosisPop', 'pop', emitterEvent.position);
-			} else if (hit.value > 0) {
-				// gem: pop the value shown on the tile the disc hit
-				spawn('multPop', 'pop', emitterEvent.position, `+${fmtZoneVal(hit.value)}x`);
+			} else if (emitterEvent.value > 0) {
+				// gem hit (incl. an immune mine hit, which pays a random value)
+				spawn('multPop', 'pop', emitterEvent.position, `+${fmtZoneVal(emitterEvent.value)}x`);
 			}
+			// dead tiles, star grazes and the mythosis strike itself pay nothing;
+			// the split gets its own FX on discSplit below.
+		},
+		// Rules: mythosis — the parent bursts into two children at the cell.
+		discSplit: (emitterEvent) => {
+			if (stateGame.skip) return;
+			spawn('mitosisPop', 'pop', emitterEvent.position);
+		},
+		// Rules: the corner multiplier shows as a popup at the struck corner —
+		// the disc has genuinely travelled into it (booked corner position).
+		discCorner: (emitterEvent) => {
+			if (stateGame.skip) return;
+			spawn('multPop', 'pop', emitterEvent.position, `×${fmtZoneVal(emitterEvent.cornerMultiplier)}`);
+		},
+		// Rules: a corner hit can chain an extra DVD round — announce it.
+		discChain: () => {
+			if (stateGame.skip) return;
+			spawn('multPop', 'pop', { x: 0.5, y: 0.35 }, 'CHAIN!');
 		},
 	});
 </script>

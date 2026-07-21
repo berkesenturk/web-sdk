@@ -1,35 +1,55 @@
-import type { GameType, ModeName, DvdMode, VisualMode, Zone } from './types';
+import type { GameType, ModeName, Tile, Vec2 } from './types';
 import type { BookEventOfType } from './typesBookEvent';
 
-// Reactive board state the renderer draws from. The board (zones) is set once per
+// Reactive board state the renderer draws from. The board (tiles) is set once per
 // round by the `reveal` handler; the running point total is advanced by the
-// `bounce`/`corner` handlers. Disc motion itself is component-local (driven by
-// emitter events), not stored here.
+// `bounce`/`corner` handlers; the live disc list grows on `split` and shrinks on
+// mine deaths. Disc motion itself is component-local (driven by emitter events),
+// not stored here.
 
-// Pre-bet placeholder board: value-0 tiles so the screen shows unrevealed
-// question tiles instead of an empty band before the first reveal replaces
-// them (ZoneTileAnimations only schedules `reveal` when zone.value > 0).
-// 8 per wall matches the design grid (10-cell edge = 2 corners + 8 tiles).
-const placeholderZones = (): Zone[] =>
-	(['top', 'right', 'bottom', 'left'] as const).flatMap((wall, wallIndex) =>
-		Array.from({ length: 8 }, (_, i) => ({
-			zoneIndex: wallIndex * 8 + i,
-			wall,
-			start: i / 8,
-			end: (i + 1) / 8,
-			value: 0,
-			isGlow: false,
-			isDead: false,
-		})),
-	);
+// One live DVD: dvdIndex 0 spawns at the reveal's discStart; split children
+// spawn at their split contact point.
+export type DiscEntry = { dvdIndex: number; spawn: Vec2 | null };
+
+// Pre-bet placeholder board: 32 hidden playable tiles (question faces) + the 4
+// star corners, matching the real 36-tile layout (BOOK_CONTRACT.md board map).
+const STAR_TILES: Tile[] = [
+	{ tileIndex: 0, kind: 'star', corner: 'TL', position: { x: 0, y: 0 } },
+	{ tileIndex: 9, kind: 'star', corner: 'TR', position: { x: 1, y: 0 } },
+	{ tileIndex: 18, kind: 'star', corner: 'BL', position: { x: 0, y: 1 } },
+	{ tileIndex: 27, kind: 'star', corner: 'BR', position: { x: 1, y: 1 } },
+];
+
+const placeholderTiles = (): Tile[] => {
+	const tiles: Tile[] = [...STAR_TILES];
+	const walls = [
+		{ wall: 'top' as const, base: 0 },
+		{ wall: 'right' as const, base: 9 },
+		{ wall: 'bottom' as const, base: 18 },
+		{ wall: 'left' as const, base: 27 },
+	];
+	for (const { wall, base } of walls) {
+		for (let b = 1; b <= 8; b++) {
+			tiles.push({
+				tileIndex: base + b,
+				kind: 'zone',
+				wall,
+				start: b / 10,
+				end: (b + 1) / 10,
+				value: 0,
+			});
+		}
+	}
+	return tiles.sort((a, b) => a.tileIndex - b.tileIndex);
+};
 
 export const stateGame = $state({
 	gameType: 'basegame' as GameType,
 	mode: 'normal' as ModeName,
-	dvdMode: 'independent' as DvdMode,
-	dvdCount: 1,
-	zones: placeholderZones(),
+	maxDvds: 1,
+	tiles: placeholderTiles(),
 	discStart: undefined as { x: number; y: number; direction: number } | undefined,
+	discs: [{ dvdIndex: 0, spawn: null }] as DiscEntry[],
 	runningTotal: 0,
 	// Set true by a mid-round SPIN press to fast-forward the rest of the round's
 	// animation to its result; reset to false at the start of every round.
@@ -37,9 +57,6 @@ export const stateGame = $state({
 	// CRT scanlines overlay on the screen (MENÜ toggle). Display preference —
 	// deliberately untouched by reset()/settle(), so it survives rounds.
 	scanlines: true,
-	// Cosmetic mode from the wall-sign selector (see ModeSelector.svelte).
-	// Display preference like `scanlines`: untouched by settle()/reset().
-	visualMode: 'normal' as VisualMode,
 });
 
 // Apply a reveal event's board to state without animation (used by both the
@@ -47,10 +64,10 @@ export const stateGame = $state({
 const settle = (revealEvent?: BookEventOfType<'reveal'>) => {
 	if (!revealEvent) return;
 	stateGame.mode = revealEvent.mode;
-	stateGame.dvdMode = revealEvent.dvdMode;
-	stateGame.dvdCount = revealEvent.dvdCount;
-	stateGame.zones = revealEvent.zones;
+	stateGame.maxDvds = revealEvent.maxDvds;
+	stateGame.tiles = revealEvent.tiles;
 	stateGame.discStart = revealEvent.discStart;
+	stateGame.discs = [{ dvdIndex: 0, spawn: null }];
 	stateGame.runningTotal = 0;
 };
 
@@ -58,6 +75,7 @@ const settle = (revealEvent?: BookEventOfType<'reveal'>) => {
 const reset = () => {
 	stateGame.runningTotal = 0;
 	stateGame.skip = false;
+	stateGame.discs = [{ dvdIndex: 0, spawn: null }];
 };
 
 export const stateGameDerived = {

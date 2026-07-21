@@ -1,27 +1,31 @@
 <script lang="ts">
+	import { stateBet } from 'state-shared';
+
 	import { getContext } from '../game/context';
-	import { stateGame } from '../game/stateGame.svelte';
 	import { tvTransform } from '../game/tvLayout';
-	import type { VisualMode } from '../game/types';
+	import type { BetMode } from '../game/types';
 
 	// Wall sign + retro-TV mode modal (DOM overlay over the pixi canvas).
 	// The sign hangs left of the cabinet, top-aligned with it; clicking it opens
 	// the modal where a mode is STAGED (rows or the MOD knob) and only ✓ applies
-	// it to stateGame.visualMode. ✕/backdrop discard. Staging never leaks to the
-	// live game. All values from the mode-selector design spec.
+	// it. Applying switches the REAL bet mode (stateBet.activeBetModeKey — the
+	// play request sends it verbatim, and the RGS serves that mode's books).
+	// ✕/backdrop discard. All values from the mode-selector design spec.
 	const context = getContext();
 
-	const MODES: { key: VisualMode; label: string }[] = [
+	const MODES: { key: BetMode; label: string }[] = [
 		{ key: 'normal', label: 'NORMAL' },
-		{ key: 'corner_rush', label: 'CORNER RUSH' },
+		{ key: 'corner_boost', label: 'CORNER BOOST' },
 		{ key: 'mythosis', label: 'MYTHOSIS' },
 		{ key: 'mythosis_plus', label: 'MYTHOSIS+' },
 	];
 
 	let open = $state(false);
-	let staged = $state<VisualMode>('normal');
+	let staged = $state<BetMode>('normal');
 	const stagedIndex = $derived(MODES.findIndex((m) => m.key === staged));
-	const appliedLabel = $derived(MODES.find((m) => m.key === stateGame.visualMode)!.label);
+	const appliedLabel = $derived(
+		(MODES.find((m) => m.key === stateBet.activeBetModeKey) ?? MODES[0]).label,
+	);
 
 	// The mode must not change while a round is running: lock the sign (and the
 	// modal's ✓, for the autospin edge where a round starts while the modal is
@@ -32,7 +36,7 @@
 	const openModal = () => {
 		if (locked) return;
 		press();
-		staged = stateGame.visualMode;
+		staged = (MODES.find((m) => m.key === stateBet.activeBetModeKey) ?? MODES[0]).key;
 		open = true;
 	};
 	const cancel = () => {
@@ -42,7 +46,7 @@
 	const apply = () => {
 		if (locked) return;
 		press();
-		stateGame.visualMode = staged;
+		stateBet.activeBetModeKey = staged;
 		open = false;
 	};
 
