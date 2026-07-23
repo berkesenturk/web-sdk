@@ -1,4 +1,7 @@
-import type { GameType, ModeName, Tile, Vec2 } from './types';
+import { stateBet } from 'state-shared';
+
+import config from './config';
+import type { BetMode, GameType, ModeName, Tile, Vec2 } from './types';
 import type { Bet, BookEventOfType } from './typesBookEvent';
 
 // Reactive board state the renderer draws from. The board (tiles) is set once per
@@ -117,10 +120,21 @@ const clearBoard = () => {
 	stateGame.runningTotal = 0;
 };
 
+// The multiplier to SHOW. `runningTotal` is the booked, uncapped total
+// (zoneSum x cornerProduct); the payout is capped at the mode's max win, so on
+// a capped round the raw total would disagree with EARNED (e.g. 2688.87x booked
+// but 500x paid). Display the paid multiplier, and let the HUD flag the cap.
+const maxWin = () =>
+	config.betModes[stateBet.activeBetModeKey as BetMode]?.max_win ?? Infinity;
+const displayTotal = () => Math.min(stateGame.runningTotal, maxWin());
+const isWinCapped = () => stateGame.runningTotal >= maxWin();
+
 export const stateGameDerived = {
 	settle,
 	reset,
 	clearBoard,
 	requestSkip,
 	untilSkip,
+	displayTotal,
+	isWinCapped,
 };

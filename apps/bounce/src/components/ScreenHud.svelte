@@ -6,7 +6,7 @@
 	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
 
 	import { getContext } from '../game/context';
-	import { stateGame } from '../game/stateGame.svelte';
+	import { stateGame, stateGameDerived } from '../game/stateGame.svelte';
 	import { BOARD_SIZES } from '../game/constants';
 
 	// Centre-screen CRT readout, drawn UNDER the disc (see TvScene render order):
@@ -14,9 +14,11 @@
 	// end) over a bottom row pairing the running multiplier (TOTAL X, left) with
 	// the last struck tile (LAST HIT, right).
 	// TOTAL X / LAST HIT show the BOOKED values (event value / runningTotal =
-	// zoneSum x cornerProduct, always two decimals). EARNED converts
-	// winBookEventAmount exactly like the SDK's LabelWin, so it always agrees
-	// with the WIN meter.
+	// zoneSum x cornerProduct, always two decimals), except that TOTAL X is
+	// clamped to the mode's max win so it always equals EARNED / stake — a
+	// capped round books far more than it pays, and the label says MAX WIN.
+	// EARNED converts winBookEventAmount exactly like the SDK's LabelWin, so it
+	// always agrees with the WIN meter.
 	const context = getContext();
 
 	const MUTED = 0x96a5c8;
@@ -131,7 +133,7 @@
 		anchor={0.5}
 		x={-150}
 		y={44}
-		text="TOTAL X"
+		text={stateGameDerived.isWinCapped() ? 'TOTAL X · MAX WIN' : 'TOTAL X'}
 		alpha={0.5}
 		style={{
 			fontFamily: 'proxima-nova',
@@ -146,7 +148,7 @@
 		x={-150}
 		y={86}
 		scale={totalScale.current}
-		text={`${stateGame.runningTotal.toFixed(2)}x`}
+		text={`${stateGameDerived.displayTotal().toFixed(2)}x`}
 		alpha={totalIdle ? 0.35 : 1}
 		style={{
 			fontFamily: 'monospace',

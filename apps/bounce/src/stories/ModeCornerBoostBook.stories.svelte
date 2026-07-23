@@ -2,7 +2,7 @@
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const { Story } = defineMeta({
-		title: 'MODE_NORMAL/book',
+		title: 'MODE_CORNER_BOOST/book',
 	});
 </script>
 
@@ -18,11 +18,11 @@
 	import Game from '../components/Game.svelte';
 	import { setContext } from '../game/context';
 	import { playBet } from '../game/utils';
-	import books from './data/normal_books';
+	import books from './data/corner_boost_books';
 	import { useBetMode } from './storyBetMode';
 
 	setContext();
-	useBetMode('normal');
+	useBetMode('corner_boost');
 </script>
 
 {#snippet template(args: TemplateArgs<any>)}

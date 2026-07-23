@@ -15,9 +15,12 @@
 	// onto them, no cover needed. KREDİ = the player's credit (balance); it rises
 	// by the win / drops by the bet each round. Slot objects follow the slot's
 	// bone, so the counter-pop (keyed on the kredi bone) pops the credit when a
-	// win lands. BAHİS = the current bet.
+	// win lands. BAHİS = the stake actually taken this round, i.e. the bet amount
+	// times the mode's cost multiplier (×1/×5/×25/×100) — same value the SDK's
+	// LabelBet shows. Showing the raw betAmount here would contradict both KREDİ
+	// (which is debited by the cost) and EARNED (= TOTAL X × stake).
 	const credit = $derived(stateBet.balanceAmount.toFixed(2));
-	const betAmount = $derived(stateBet.betAmount.toFixed(2));
+	const betAmount = $derived(stateBetDerived.betCost().toFixed(2));
 
 	// The cabinet also bakes its control-panel buttons (SES/BİLGİ pills, the
 	// BAHİS −/+ knobs, the SPIN dial, the OTO switch). Invisible hit areas at
